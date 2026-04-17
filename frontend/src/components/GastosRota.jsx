@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { fetchGastos, criarGasto, editarGasto, deletarGasto, fmtBRL, CATEGORIAS_GASTO } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
 
 const EMPTY_FORM = { categoria: 'pedagio', descricao: '', valor: '' }
 
 export default function GastosRota({ rotaId, onGastoChange }) {
+  const { tenant } = useAuth()
+  const isPro = tenant?.plano === 'pro'
   const [gastos,   setGastos]   = useState([])
   const [loading,  setLoading]  = useState(true)
   const [showAdd,  setShowAdd]  = useState(false)
@@ -64,14 +67,17 @@ export default function GastosRota({ rotaId, onGastoChange }) {
         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--t3)' }}>
           Gastos extras {total > 0 && <span style={{ color: 'var(--re)', fontFamily: 'var(--fm)' }}>− {fmtBRL(total)}</span>}
         </p>
-        <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={openAdd}>+ Adicionar</button>
+        {isPro
+        ? <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={openAdd}>+ Adicionar</button>
+        : <a href="/precos" style={{ fontSize:11, color:'var(--or2)', textDecoration:'none', fontWeight:600, padding:'5px 10px', border:'1px solid rgba(249,115,22,.2)', borderRadius:6, background:'var(--od)' }}>⭐ Pro</a>
+      }
       </div>
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><div className="spinner"/></div>
       ) : gastos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--t3)', fontSize: 12 }}>
-          Nenhum gasto extra registrado
+          {isPro ? 'Nenhum gasto extra registrado' : <span>🔒 Gastos extras disponíveis no <a href="/precos" style={{ color:'var(--or2)' }}>plano Pro</a></span>}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

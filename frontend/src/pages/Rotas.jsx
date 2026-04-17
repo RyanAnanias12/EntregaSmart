@@ -20,6 +20,7 @@ export default function Rotas() {
   const [editando, setEditando] = useState(null)
   const [detalhe,  setDetalhe]  = useState(null)
   const [toast,    setToast]    = useState(null)
+  const [limiteAtingido, setLimiteAtingido] = useState(false)
   const [membros,  setMembros]  = useState([])
   const [filters,  setFilters]  = useState({ data_inicio: '', data_fim: '', piloto: '', ponto_coleta: '', status: '', plataforma: '' })
   const [searchParams, setSearchParams] = useSearchParams()
@@ -51,7 +52,14 @@ export default function Rotas() {
       if (editando) { await editarRota(editando.id, form); notify('Rota atualizada!') }
       else          { await criarRota(form);                notify('Rota criada! Email enviado.') }
       setShowForm(false); setEditando(null); setDetalhe(null); load()
-    } catch (e) { notify(e.message, 'error') }
+    } catch (e) {
+      if (e.message.includes('Limite')) {
+        setShowForm(false)
+        setLimiteAtingido(true)
+      } else {
+        notify(e.message, 'error')
+      }
+    }
     finally { setSaving(false) }
   }
 
@@ -283,6 +291,22 @@ export default function Rotas() {
               <button className="btn btn-danger btn-sm" onClick={() => handleDelete(detalhe.id)}>🗑️ Deletar</button>
               <button className="btn btn-ghost btn-sm" onClick={e => openEdit(detalhe, e)}>✏️ Editar</button>
               <button className="btn btn-ghost btn-sm" onClick={() => setDetalhe(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {limiteAtingido && (
+        <div className="modal-overlay" onClick={() => setLimiteAtingido(false)}>
+          <div className="modal" style={{ maxWidth:420, textAlign:'center' }}>
+            <div className="modal-body" style={{ padding:'32px 28px' }}>
+              <div style={{ fontSize:40, marginBottom:16 }}>🔒</div>
+              <h2 style={{ fontFamily:'var(--ff)', fontSize:20, fontWeight:800, marginBottom:8 }}>Limite do plano gratuito</h2>
+              <p style={{ color:'var(--t2)', fontSize:14, marginBottom:24 }}>Você atingiu o limite de 30 rotas por mês no plano gratuito. Faça upgrade para o plano Pro e crie rotas ilimitadas.</p>
+              <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' }}>
+                <button className="btn btn-ghost" onClick={() => setLimiteAtingido(false)}>Fechar</button>
+                <button className="btn btn-primary" onClick={() => { setLimiteAtingido(false); window.location.href = '/precos' }}>⭐ Ver plano Pro</button>
+              </div>
             </div>
           </div>
         </div>

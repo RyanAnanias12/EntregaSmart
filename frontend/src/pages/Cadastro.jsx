@@ -25,7 +25,7 @@ export default function Cadastro() {
     <div className="auth-page">
       <div className="auth-bg"/>
       <div className="auth-card">
-        <div className="auth-logo"><div className="icon">🚚</div>Entregas<span>ML</span></div>
+        <div className="auth-logo"><div className="icon">🚚</div>Smart<span>Entregas</span></div>
         <h1 className="auth-title">Criar conta grátis</h1>
         <p className="auth-sub">Configure sua equipe em menos de 1 minuto</p>
         {err && <div style={{ background:'var(--rd)', border:'1px solid rgba(239,68,68,.25)', borderRadius:'var(--rsm)', padding:'10px 14px', fontSize:13, color:'var(--re)', marginBottom:16 }}>{err}</div>}

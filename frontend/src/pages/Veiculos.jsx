@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchVeiculos, criarVeiculo, editarVeiculo, deletarVeiculo } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext'
 import { Toast } from '../components/Toast'
 
 const TIPOS = [{ v: 'carro', l: '🚗 Carro' }, { v: 'moto', l: '🏍️ Moto' }, { v: 'van', l: '🚐 Van' }]
@@ -7,6 +9,8 @@ const COMBS = [{ v: 'alcool', l: 'Álcool' }, { v: 'gasolina', l: 'Gasolina' }, 
 const EMPTY = { nome: '', placa: '', tipo: 'carro', consumo_kml: '', combustivel: 'alcool' }
 
 export default function Veiculos() {
+  const { tenant } = useAuth()
+  const isPro = tenant?.plano === 'pro'
   const [veiculos, setVeiculos] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
@@ -56,8 +60,18 @@ export default function Veiculos() {
             <h1 className="pg-title">Veículos</h1>
             <p className="pg-sub">Gerencie os veículos da equipe com consumos específicos</p>
           </div>
-          <button className="btn btn-primary" onClick={openAdd}>+ Adicionar veículo</button>
+          {isPro ? <button className="btn btn-primary" onClick={openAdd}>+ Adicionar veículo</button> : <a href="/precos" className="btn btn-ghost btn-sm" style={{ borderColor:'rgba(249,115,22,.3)', color:'var(--or2)' }}>⭐ Plano Pro para adicionar</a>}
         </div>
+
+        {!isPro && (
+          <div style={{ background:'var(--od)', border:'1px solid rgba(249,115,22,.2)', borderRadius:'var(--r)', padding:'16px 20px', marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <div>
+              <p style={{ fontWeight:600, fontSize:13, color:'var(--or2)', marginBottom:3 }}>🔒 Veículos disponíveis no plano Pro</p>
+              <p style={{ fontSize:12, color:'var(--t2)' }}>Cadastre diferentes veículos com consumos específicos para calcular o combustível corretamente.</p>
+            </div>
+            <a href="/precos" className="btn btn-primary btn-sm">⭐ Assinar Pro — R$ 14,90/mês</a>
+          </div>
+        )}
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}><div className="spinner"/></div>
@@ -67,7 +81,10 @@ export default function Veiculos() {
               <div className="empty-icon">🚗</div>
               <p className="empty-title">Nenhum veículo cadastrado</p>
               <p className="empty-sub">Adicione os veículos da equipe para calcular o combustível corretamente</p>
-              <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}>+ Adicionar primeiro veículo</button>
+              {isPro
+                ? <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}>+ Adicionar primeiro veículo</button>
+                : <a href="/precos" className="btn btn-primary" style={{ marginTop: 16, display:'inline-flex' }}>⭐ Upgrade Pro para cadastrar veículos</a>
+              }
             </div>
           </div>
         ) : (

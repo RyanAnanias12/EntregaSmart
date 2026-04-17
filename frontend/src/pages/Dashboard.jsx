@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji } from '../lib/api'
+import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji, fetchMeta, salvarMeta } from '../lib/api'
+import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const TT = ({ active, payload, label }) => {
@@ -16,14 +18,31 @@ const COLORS = ['#f97316', '#fb923c', '#fdba74', '#fed7aa']
 const PIE_COLORS = ['#f97316', '#3b82f6', '#f59e0b', '#10b981']
 
 export default function Dashboard() {
+  const { tenant } = useAuth()
+  const isPro = tenant?.plano === 'pro'
+  const { tenant } = useAuth()
+  const isPro = tenant?.plano === 'pro'
   const [stats,   setStats]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [period,  setPeriod]  = useState({ data_inicio: '', data_fim: '' })
+  const [meta,    setMeta]    = useState(0)
+  const [editMeta, setEditMeta] = useState(false)
+  const [metaInput, setMetaInput] = useState('')
 
   useEffect(() => {
     setLoading(true)
     fetchStats(buildQS(period)).then(setStats).catch(() => {}).finally(() => setLoading(false))
   }, [period])
+
+  useEffect(() => {
+    fetchMeta().then(d => { setMeta(d.meta_mensal || 0); setMetaInput(d.meta_mensal || '') }).catch(() => {})
+  }, [])
+
+  async function handleSalvarMeta() {
+    const v = parseFloat(metaInput) || 0
+    await salvarMeta(v).catch(() => {})
+    setMeta(v); setEditMeta(false)
+  }
 
   const setP = (k, v) => setPeriod(p => ({ ...p, [k]: v }))
 
@@ -64,6 +83,17 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* BANNER UPGRADE FREE */}
+        {!isPro && (
+          <div style={{ marginBottom:16, padding:'14px 18px', background:'linear-gradient(135deg,rgba(249,115,22,.1),rgba(251,146,60,.05))', border:'1px solid rgba(249,115,22,.25)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <div>
+              <p style={{ fontSize:13, fontWeight:600, color:'var(--or2)', marginBottom:2 }}>⭐ Desbloqueie o Dashboard completo</p>
+              <p style={{ fontSize:12, color:'var(--t3)' }}>Gráficos avançados, meta mensal, plataformas e muito mais no plano Pro.</p>
+            </div>
+            <a href="/precos" className="btn btn-primary btn-sm">Ver plano Pro →</a>
+          </div>
+        )}
+
         {/* MÉTRICAS */}
         <div className="grid4" style={{ marginBottom: 16 }}>
           <div className="metric"><p className="metric-label">Total bruto</p><p className="metric-value orange">{fmtBRL(g.total_bruto)}</p><p className="metric-sub">{g.total_rotas} rota{g.total_rotas != 1 ? 's' : ''}</p></div>
@@ -72,8 +102,66 @@ export default function Dashboard() {
           <div className="metric"><p className="metric-label">Taxa entrega</p><p className="metric-value">{taxaGeral !== null ? `${taxaGeral}%` : '—'}</p><p className="metric-sub">{g.total_entregues} entregues</p></div>
         </div>
 
+        {/* UPGRADE BANNER FREE */}
+        {!isPro && (
+          <div style={{ background:'var(--od)', border:'1px solid rgba(249,115,22,.2)', borderRadius:'var(--r)', padding:'16px 20px', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <div>
+              <p style={{ fontWeight:600, fontSize:13, color:'var(--or2)', marginBottom:3 }}>⭐ Gráficos e análises completas no plano Pro</p>
+              <p style={{ fontSize:12, color:'var(--t2)' }}>Faturamento mensal, rateio acumulado, análise por plataforma e mais.</p>
+            </div>
+            <a href="/precos" className="btn btn-primary btn-sm">Assinar Pro — R$ 14,90/mês</a>
+          </div>
+        )}
+
+        {/* META MENSAL */}
+        {(meta > 0 || editMeta) && (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-header">
+              <span className="card-title">Meta mensal de faturamento</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setEditMeta(e => !e); setMetaInput(meta) }}>
+                {editMeta ? 'Cancelar' : '✏️ Editar'}
+              </button>
+            </div>
+            <div className="card-body">
+              {editMeta ? (
+                <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
+                  <div className="field" style={{ flex:1 }}>
+                    <label className="field-label">Meta (R$)</label>
+                    <input className="input" type="number" min="0" step="100" value={metaInput} onChange={e => setMetaInput(e.target.value)} placeholder="Ex: 3000"/>
+                  </div>
+                  <button className="btn btn-primary" onClick={handleSalvarMeta}>Salvar</button>
+                </div>
+              ) : (() => {
+                const atual = parseFloat(g?.total_bruto || 0)
+                const pct   = meta > 0 ? Math.min(Math.round((atual / meta) * 100), 100) : 0
+                const cor   = pct >= 100 ? 'var(--gr2)' : pct >= 70 ? 'var(--or)' : 'var(--ye)'
+                return (
+                  <div>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                      <span style={{ fontSize:13, color:'var(--t2)' }}>{fmtBRL(atual)} de {fmtBRL(meta)}</span>
+                      <span style={{ fontFamily:'var(--fm)', fontSize:14, color:cor, fontWeight:700 }}>{pct}%</span>
+                    </div>
+                    <div style={{ background:'var(--s3)', borderRadius:99, height:10, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${pct}%`, background:cor, borderRadius:99, transition:'width .6s ease' }}/>
+                    </div>
+                    <p style={{ fontSize:11, color:'var(--t3)', marginTop:8 }}>
+                      {pct >= 100 ? '🎉 Meta atingida!' : `Faltam ${fmtBRL(meta - atual)} para atingir a meta`}
+                    </p>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+        {!meta && !editMeta && (
+          <div style={{ marginBottom:14, padding:'12px 16px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+            <p style={{ fontSize:13, color:'var(--t2)' }}>🎯 Defina uma meta mensal de faturamento</p>
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditMeta(true)}>Definir meta</button>
+          </div>
+        )}
+
         {/* GRÁFICO ÁREA */}
-        {meses.length > 0 && (
+        {isPro && meses.length > 0 && (
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-header">
               <span className="card-title">Faturamento mensal</span>
@@ -104,7 +192,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="grid2" style={{ marginBottom: 14 }}>
+        {isPro && <div className="grid2" style={{ marginBottom: 14 }}>
           {/* RATEIO */}
           <div className="card">
             <div className="card-header"><span className="card-title">Rateio acumulado</span></div>
@@ -126,7 +214,7 @@ export default function Dashboard() {
 
           {/* POR PLATAFORMA */}
           <div className="card">
-            <div className="card-header"><span className="card-title">Rotas por plataforma</span></div>
+            <div className="card-header"><span className="card-title">Rotas por plataforma</span>{!isPro && <span className="badge badge-orange" style={{fontSize:10}}>⭐ Pro</span>}</div>
             <div className="card-body">
               {plataformas.length === 0
                 ? <p style={{ color: 'var(--t3)', fontSize: 13 }}>Sem dados ainda</p>
@@ -152,10 +240,10 @@ export default function Dashboard() {
                 )}
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* GANHO POR PESSOA */}
-        {rateio.length > 0 && (
+        {isPro && rateio.length > 0 && (
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-header"><span className="card-title">Ganho por pessoa</span></div>
             <div className="card-body" style={{ paddingTop: 4 }}>
@@ -175,7 +263,7 @@ export default function Dashboard() {
         )}
 
         {/* TABELA POR PILOTO */}
-        {(stats.porPiloto || []).length > 0 && (
+        {isPro && (stats.porPiloto || []).length > 0 && (
           <div className="card">
             <div className="card-header"><span className="card-title">Participação como piloto</span></div>
             <div className="table-wrap">

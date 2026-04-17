@@ -1,14 +1,16 @@
 const { Resend } = require('resend')
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM   = process.env.EMAIL_FROM || 'EntregasML <noreply@entregasml.com>'
+const FROM   = process.env.EMAIL_FROM || 'Smart Entregas <noreply@entregasml.com>'
 
 function fmtBRL(v) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 }
 
 function fmtData(d) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
+  if (!d) return '—'
+  const s = typeof d === 'string' ? d.slice(0,10) : new Date(d).toISOString().slice(0,10)
+  return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR')
 }
 
 function baseTemplate(content) {
@@ -20,11 +22,11 @@ function baseTemplate(content) {
   <div style="max-width:520px;margin:0 auto;padding:32px 20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px">
       <div style="background:#f97316;width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:16px">🚚</div>
-      <span style="font-size:18px;font-weight:800;color:#f4f4f6">Entregas<span style="color:#f97316">ML</span></span>
+      <span style="font-size:18px;font-weight:800;color:#f4f4f6">Smart<span style="color:#f97316">Entregas</span></span>
     </div>
     ${content}
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;font-size:11px;color:#4a4a62">
-      EntregasML · Sistema de controle de rotas
+      Smart Entregas · Sistema de controle de rotas
     </div>
   </div>
 </body>
@@ -161,7 +163,7 @@ async function enviarResumoSemanal(stats, rateio, emails, tenantNome, periodo) {
 // Email de boas vindas
 async function enviarBoasVindas(nome, email, tenantNome) {
   const html = baseTemplate(`
-    <h2 style="font-size:22px;font-weight:800;color:#f4f4f6;margin-bottom:8px">Bem-vindo ao EntregasML! 🎉</h2>
+    <h2 style="font-size:22px;font-weight:800;color:#f4f4f6;margin-bottom:8px">Bem-vindo ao Smart Entregas! 🎉</h2>
     <p style="color:#7c7c96;font-size:14px;margin-bottom:24px">Olá ${nome}, sua equipe <strong style="color:#f4f4f6">${tenantNome}</strong> foi criada com sucesso.</p>
     <div style="background:#141418;border:1px solid rgba(249,115,22,0.2);border-radius:12px;padding:20px;margin-bottom:20px">
       <p style="color:#f4f4f6;font-size:14px;font-weight:600;margin-bottom:12px">Próximos passos:</p>
@@ -176,7 +178,41 @@ async function enviarBoasVindas(nome, email, tenantNome) {
       Acessar o sistema →
     </a>
   `)
-  await resend.emails.send({ from: FROM, to: email, subject: '🚚 Bem-vindo ao EntregasML!', html }).catch(console.error)
+  await resend.emails.send({ from: FROM, to: email, subject: '🚚 Bem-vindo ao Smart Entregas!', html }).catch(console.error)
 }
 
-module.exports = { enviarNotificacaoRotaCriada, enviarNotificacaoRotaConcluida, enviarResumoSemanal, enviarBoasVindas }
+// Rotas atrasadas — enviado às 20h se houver rotas não concluídas do dia
+async function enviarRotasAtrasadas(rotas, emails, tenantNome, data) {
+  if (!emails?.length || !rotas?.length) return
+  const dataFmt = data.split('-').reverse().join('/')
+  const rotasHtml = rotas.map(r => `
+    <div style="background:#1c1c22;border-radius:10px;padding:14px 16px;margin-bottom:8px;border-left:3px solid #f59e0b">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:600;color:#f4f4f6">${r.piloto} + ${r.copiloto}</span>
+        <span style="background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 8px;border-radius:99px;font-size:11px">${r.status === 'em_andamento' ? 'Em andamento' : 'Planejada'}</span>
+      </div>
+      <p style="font-size:12px;color:#7c7c96">📍 ${r.ponto_coleta}${r.hora_inicio ? ` · 🕐 ${r.hora_inicio}` : ''}</p>
+    </div>
+  `).join('')
+
+  const html = baseTemplate(`
+    <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:6px">⚠️ Rotas não concluídas hoje</h2>
+    <p style="color:#7c7c96;font-size:13px;margin-bottom:20px">${tenantNome} · ${dataFmt}</p>
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+      <p style="color:#f59e0b;font-size:13px;font-weight:500">
+        ${rotas.length} rota${rotas.length > 1 ? 's' : ''} ainda não ${rotas.length > 1 ? 'foram concluídas' : 'foi concluída'} hoje.
+        Lembre-se de atualizar o status para manter o controle correto.
+      </p>
+    </div>
+    ${rotasHtml}
+    <a href="${process.env.FRONTEND_URL}/rotas" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;margin-top:20px">
+      Atualizar rotas →
+    </a>
+  `)
+
+  for (const email of emails) {
+    await resend.emails.send({ from: FROM, to: email, subject: `⚠️ ${rotas.length} rota(s) não concluída(s) hoje — ${tenantNome}`, html }).catch(console.error)
+  }
+}
+
+module.exports = { enviarNotificacaoRotaCriada, enviarNotificacaoRotaConcluida, enviarResumoSemanal, enviarBoasVindas, enviarRotasAtrasadas }

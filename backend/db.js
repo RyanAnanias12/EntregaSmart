@@ -96,6 +96,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE rotas ADD COLUMN IF NOT EXISTS preco_combustivel NUMERIC DEFAULT 4.69`).catch(() => {})
   await pool.query(`ALTER TABLE rotas ADD COLUMN IF NOT EXISTS notificacao_enviada BOOLEAN DEFAULT false`).catch(() => {})
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stripe_customer TEXT`).catch(() => {})
+  await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS meta_mensal NUMERIC DEFAULT 0`).catch(() => {})
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stripe_sub TEXT`).catch(() => {})
 
   console.log('[DB] Tabelas prontas')

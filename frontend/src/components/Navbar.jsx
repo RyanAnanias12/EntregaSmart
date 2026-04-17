@@ -30,7 +30,7 @@ export default function Navbar() {
           <div className="nav-inner">
             <div className="nav-logo" onClick={() => go('/')}>
               <div className="nav-logo-icon">🚚</div>
-              Entregas<span>ML</span>
+              Smart<span>Entregas</span>
             </div>
             <nav className="nav-links">
               {links.map(l => (

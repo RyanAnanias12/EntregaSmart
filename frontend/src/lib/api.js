@@ -60,6 +60,10 @@ export const criarUsuario   = d        => req('/api/usuarios',       { method: '
 export const editarUsuario  = (id, d)  => req(`/api/usuarios/${id}`, { method: 'PUT',    body: JSON.stringify(d) })
 export const deletarUsuario = id       => req(`/api/usuarios/${id}`, { method: 'DELETE' })
 
+// META MENSAL
+export const fetchMeta  = ()  => req('/api/auth/meta')
+export const salvarMeta = (v) => req('/api/auth/meta', { method: 'PUT', body: JSON.stringify({ meta_mensal: v }) })
+
 // BILLING
 export const criarCheckout  = ()       => req('/api/billing/checkout', { method: 'POST' })
 export const abrirPortal    = ()       => req('/api/billing/portal')

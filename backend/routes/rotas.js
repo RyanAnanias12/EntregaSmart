@@ -134,7 +134,25 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const d = req.body
-    if (d.piloto === d.copiloto) return res.status(400).json({ error: 'Piloto e copiloto não podem ser iguais' })
+    // No plano free copiloto não é obrigatório
+    if (req.user.plano === 'pro' && d.piloto === d.copiloto) {
+      return res.status(400).json({ error: 'Piloto e copiloto não podem ser iguais' })
+    }
+
+    // Limite plano free: 10 rotas por mês
+    if (req.user.plano !== 'pro') {
+      const mes_inicio = new Date(); mes_inicio.setDate(1); mes_inicio.setHours(0,0,0,0)
+      const { rows: [cnt] } = await pool.query(
+        `SELECT COUNT(*) as total FROM rotas WHERE tenant_id=$1 AND criado_em >= $2`,
+        [req.user.tenant_id, mes_inicio.toISOString()]
+      )
+      if (parseInt(cnt.total) >= 10) {
+        return res.status(403).json({
+          error: 'Limite de 10 rotas por mês atingido no plano gratuito.',
+          upgrade: true
+        })
+      }
+    }
 
     let consumo = 6.5, preco = PRECO_ALCOOL_PADRAO
     if (d.veiculo_id) {
@@ -150,7 +168,7 @@ router.post('/', auth, async (req, res) => {
       INSERT INTO rotas (tenant_id,criado_por,veiculo_id,plataforma,piloto,copiloto,ponto_coleta,hora_inicio,hora_fim,data_rota,status,kms,pacotes_saida,pacotes_entregues,pacotes_devolvidos,paradas,valor_total,custo_combustivel,lucro_liquido,preco_combustivel,observacoes)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *
     `, [req.user.tenant_id,req.user.id,d.veiculo_id||null,d.plataforma||'mercado_livre',
-        d.piloto,d.copiloto,d.ponto_coleta,d.hora_inicio||null,d.hora_fim||null,
+        d.piloto,d.copiloto||'',d.ponto_coleta,d.hora_inicio||null,d.hora_fim||null,
         d.data_rota,d.status||'planejada',d.kms||0,d.pacotes_saida||0,d.pacotes_entregues||0,
         d.pacotes_devolvidos||0,d.paradas||0,d.valor_total||0,comb,liq,preco,d.observacoes||null])
 
@@ -170,7 +188,9 @@ router.post('/', auth, async (req, res) => {
 router.put('/:id', auth, async (req, res) => {
   try {
     const d = req.body
-    if (d.piloto === d.copiloto) return res.status(400).json({ error: 'Piloto e copiloto não podem ser iguais' })
+    if (req.user.plano === 'pro' && d.piloto === d.copiloto) {
+      return res.status(400).json({ error: 'Piloto e copiloto não podem ser iguais' })
+    }
 
     const { rows: [atual] } = await pool.query(`SELECT status FROM rotas WHERE id=$1 AND tenant_id=$2`, [req.params.id, req.user.tenant_id])
     if (!atual) return res.status(404).json({ error: 'Não encontrada' })

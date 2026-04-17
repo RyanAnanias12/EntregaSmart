@@ -31,28 +31,31 @@ export default function Precos() {
 
   const PLANS = [
     {
-      name: 'Gratuito', price: 0, sub: 'Para começar',
+      name: 'Gratuito', price: 0, sub: 'Para experimentar',
       feats: [
-        { ok: true,  txt: 'Até 30 rotas por mês' },
-        { ok: true,  txt: '2 membros na equipe' },
+        { ok: true,  txt: 'Até 10 rotas por mês' },
+        { ok: true,  txt: '1 membro na equipe' },
         { ok: true,  txt: 'Rateio automático' },
-        { ok: true,  txt: 'Dashboard básico' },
-        { ok: false, txt: 'Veículos ilimitados' },
+        { ok: false, txt: 'Dashboard com gráficos' },
+        { ok: false, txt: 'Veículos com consumo próprio' },
         { ok: false, txt: 'Notificações por email' },
         { ok: false, txt: 'Resumo semanal' },
         { ok: false, txt: 'Filtros avançados' },
+        { ok: false, txt: 'Meta mensal' },
       ],
     },
     {
-      name: 'Pro', price: 19.99, sub: 'por mês', featured: true,
+      name: 'Pro', price: 14.90, sub: 'por mês', featured: true,
       feats: [
         { ok: true, txt: 'Rotas ilimitadas' },
-        { ok: true, txt: 'Membros ilimitados' },
-        { ok: true, txt: 'Rateio automático' },
+        { ok: true, txt: 'Até 5 membros na equipe' },
+        { ok: true, txt: 'Rateio automático (60% / 40%)' },
         { ok: true, txt: 'Dashboard completo com gráficos' },
         { ok: true, txt: 'Veículos ilimitados com consumo próprio' },
         { ok: true, txt: 'Notificações por email (rota criada/concluída)' },
         { ok: true, txt: 'Resumo semanal por email' },
+        { ok: true, txt: 'Alerta de rotas não concluídas' },
+        { ok: true, txt: 'Meta mensal com barra de progresso' },
         { ok: true, txt: 'Filtros avançados por data, piloto, plataforma' },
       ],
     },
@@ -73,7 +76,7 @@ export default function Precos() {
               {p.featured && <div className="pricing-badge">⭐ Mais popular</div>}
               <p className="pricing-name">{p.name}</p>
               <p className="pricing-price">
-                {p.price === 0 ? 'Grátis' : <>R$ {p.price.toFixed(2).replace('.', ',')}<span>/mês</span></>}
+                {p.price === 0 ? 'Grátis' : <>R$ {p.price.toLocaleString('pt-BR', {minimumFractionDigits:2})}<span>/mês</span></>}
               </p>
               <p className="pricing-sub">{p.sub}</p>
 
@@ -106,7 +109,7 @@ export default function Precos() {
         <div style={{ textAlign: 'center', marginTop: 40, padding: '28px', background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 'var(--r)' }}>
           <p style={{ fontFamily: 'var(--ff)', fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Dúvidas? Fale com a gente</p>
           <p style={{ color: 'var(--t2)', fontSize: 13, marginBottom: 14 }}>Respondemos em até 24h</p>
-          <a href="mailto:contato@entregasml.com" className="btn btn-ghost">contato@entregasml.com</a>
+          <a href="mailto:contato@ryanananias.com@gmail.com" className="btn btn-ghost">contato@ryanananias.com@gmail.com</a>
         </div>
       </div>
     </div>

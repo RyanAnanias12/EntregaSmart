@@ -1,6 +1,6 @@
 const router   = require('express').Router()
 const { pool } = require('../db')
-const { auth } = require('../middleware')
+const { auth, proOnly } = require('../middleware')
 
 // GET /api/gastos/:rotaId — lista gastos de uma rota
 router.get('/:rotaId', auth, async (req, res) => {
@@ -17,7 +17,7 @@ router.get('/:rotaId', auth, async (req, res) => {
 })
 
 // POST /api/gastos/:rotaId — adiciona gasto
-router.post('/:rotaId', auth, async (req, res) => {
+router.post('/:rotaId', auth, proOnly, async (req, res) => {
   const { categoria, descricao, valor } = req.body
   if (!categoria || !valor) return res.status(400).json({ error: 'Categoria e valor obrigatórios' })
   if (parseFloat(valor) <= 0) return res.status(400).json({ error: 'Valor deve ser positivo' })
@@ -51,7 +51,7 @@ router.post('/:rotaId', auth, async (req, res) => {
 })
 
 // PUT /api/gastos/item/:id — edita gasto
-router.put('/item/:id', auth, async (req, res) => {
+router.put('/item/:id', auth, proOnly, async (req, res) => {
   const { categoria, descricao, valor } = req.body
   const client = await pool.connect()
   try {
@@ -74,7 +74,7 @@ router.put('/item/:id', auth, async (req, res) => {
 })
 
 // DELETE /api/gastos/item/:id — remove gasto
-router.delete('/item/:id', auth, async (req, res) => {
+router.delete('/item/:id', auth, proOnly, async (req, res) => {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')

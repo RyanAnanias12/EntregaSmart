@@ -26,7 +26,7 @@ function HomeLogado({ user, tenant }) {
           </div>
           {tenant?.plano !== 'pro' && (
             <button className="btn btn-ghost btn-sm" style={{ borderColor: 'rgba(249,115,22,.3)', color: 'var(--or2)' }} onClick={() => nav('/precos')}>
-              ⭐ Upgrade Pro — R$ 19,99/mês
+              ⭐ Upgrade Pro — R$ 14,90/mês
             </button>
           )}
         </div>
@@ -173,7 +173,7 @@ function Landing() {
           </div>
         </div>
       </section>
-      <footer>EntregasML — controle de rotas para motoristas de logística 🚚</footer>
+      <footer>Smart Entregas — controle de rotas para motoristas de logística 🚚</footer>
     </div>
   )
 }
