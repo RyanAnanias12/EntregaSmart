@@ -1,7 +1,5 @@
 {
-  "name": "entregasmart-root",
+  "name": "entregas-ml-root",
   "private": true,
-  "engines": {
-    "node": "24.x"
-  }
+  "engines": { "node": "24.x" }
 }

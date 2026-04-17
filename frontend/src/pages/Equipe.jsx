@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchUsuarios, criarUsuario, editarUsuario, deletarUsuario, iniciais } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { useAuth } from '../context/AuthContext'
-import { useAuth } from '../context/AuthContext'
 import { Toast } from '../components/Toast'
 
 export default function Equipe() {

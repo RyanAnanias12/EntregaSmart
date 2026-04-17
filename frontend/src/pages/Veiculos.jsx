@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchVeiculos, criarVeiculo, editarVeiculo, deletarVeiculo } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { useAuth } from '../context/AuthContext'
 import { Toast } from '../components/Toast'
 
 const TIPOS = [{ v: 'carro', l: '🚗 Carro' }, { v: 'moto', l: '🏍️ Moto' }, { v: 'van', l: '🚐 Van' }]

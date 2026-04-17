@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { useAuth } from '../context/AuthContext'
 
 const STATUS = [
   { v: 'planejada',    l: 'Planejada'    },

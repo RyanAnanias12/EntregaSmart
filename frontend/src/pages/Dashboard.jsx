@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji, fetchMeta, salvarMeta } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { useAuth } from '../context/AuthContext'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const TT = ({ active, payload, label }) => {
@@ -18,8 +17,6 @@ const COLORS = ['#f97316', '#fb923c', '#fdba74', '#fed7aa']
 const PIE_COLORS = ['#f97316', '#3b82f6', '#f59e0b', '#10b981']
 
 export default function Dashboard() {
-  const { tenant } = useAuth()
-  const isPro = tenant?.plano === 'pro'
   const { tenant } = useAuth()
   const isPro = tenant?.plano === 'pro'
   const [stats,   setStats]   = useState(null)
