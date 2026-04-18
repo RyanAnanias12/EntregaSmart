@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS } from '../lib/api'
+import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS, calcLucroPorHora } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 const STATUS = [
@@ -200,6 +200,16 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
                   <input className="input" type="number" step="0.01" min="0" value={f.preco_combustivel} onChange={e => s('preco_combustivel', e.target.value)} placeholder="4.69"/>
                 </div>
               </div>
+              {(() => {
+                const lph = calcLucroPorHora(liq, f.hora_inicio, f.hora_fim)
+                if (!lph) return null
+                return (
+                  <div style={{ background:'var(--s3)', borderRadius:8, padding:'8px 12px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <p style={{ fontSize:11, color:'var(--t3)' }}>⏱️ Lucro por hora trabalhada</p>
+                    <p style={{ fontFamily:'var(--fm)', fontSize:13, color: lph >= 30 ? 'var(--gr2)' : 'var(--ye)' }}>{fmtBRL(lph)}/h</p>
+                  </div>
+                )
+              })()}
               {kms > 0 && vt > 0 && (
                 <div className="grid2">
                   <div style={{ background: 'var(--s3)', borderRadius: 8, padding: '10px 12px' }}>

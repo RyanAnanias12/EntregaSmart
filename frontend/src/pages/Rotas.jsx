@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { fetchRotas, criarRota, editarRota, deletarRota, fetchRota, fetchUsuarios, fmtBRL, fmtData, calcDuracao, calcRateio, buildQS, statusLabel, plataformaLabel, plataformaEmoji, iniciais, PLATAFORMAS } from '../lib/api'
+import { fetchRotas, criarRota, editarRota, deletarRota, fetchRota, fetchUsuarios, fmtBRL, fmtData, calcDuracao, calcRateio, buildQS, statusLabel, plataformaLabel, plataformaEmoji, iniciais, PLATAFORMAS, calcLucroPorHora } from '../lib/api'
 import GastosRota from '../components/GastosRota'
 import RotaForm from '../components/RotaForm'
 import { Toast } from '../components/Toast'
@@ -249,6 +249,7 @@ export default function Rotas() {
                   { label: 'Veículo',       val: detalhe.veiculo_nome || 'Padrão' },
                   { label: 'Ponto coleta',  val: detalhe.ponto_coleta || '—' },
                   { label: 'KMs rodados',   val: detalhe.kms ? `${detalhe.kms} km` : '—' },
+                  { label: '⏱️ Lucro por hora', val: (() => { const lph = calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim); return lph ? fmtBRL(lph) + '/h' : '—' })() },
                   { label: 'Saíram',        val: detalhe.pacotes_saida || '—' },
                   { label: 'Entregues',     val: detalhe.pacotes_entregues || '—' },
                   { label: 'Devolvidos',    val: detalhe.pacotes_devolvidos || '—' },

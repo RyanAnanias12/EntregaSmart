@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji, fetchMeta, salvarMeta } from '../lib/api'
+import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji, fetchMeta, salvarMeta, fetchDespesas, fetchConfig, calcLucroPorHora } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -23,6 +23,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [period,  setPeriod]  = useState({ data_inicio: '', data_fim: '' })
   const [meta,    setMeta]    = useState(0)
+  const [despesas, setDespesas] = useState([])
+  const [config,   setConfig]   = useState({ modo_solo: false, meta_diaria: 0 })
   const [editMeta, setEditMeta] = useState(false)
   const [metaInput, setMetaInput] = useState('')
 
@@ -33,6 +35,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchMeta().then(d => { setMeta(d.meta_mensal || 0); setMetaInput(d.meta_mensal || '') }).catch(() => {})
+    fetchDespesas().then(setDespesas).catch(() => {})
+    fetchConfig().then(setConfig).catch(() => {})
   }, [])
 
   async function handleSalvarMeta() {
@@ -79,6 +83,35 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* LUCRO REAL — deduz despesas fixas (Solo/Pro) */}
+        {despesas.length > 0 && stats && (() => {
+          const totalDespesas = despesas.reduce((acc, d) => acc + parseFloat(d.valor), 0)
+          const lucroReal = parseFloat(g?.total_liquido || 0) - totalDespesas
+          return (
+            <div className="card" style={{ marginBottom: 14, border: lucroReal >= 0 ? '1px solid rgba(16,185,129,.2)' : '1px solid rgba(239,68,68,.2)' }}>
+              <div className="card-header">
+                <span className="card-title">💰 Lucro real (após despesas fixas)</span>
+              </div>
+              <div className="card-body">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                  <div style={{ background: 'var(--s2)', borderRadius: 8, padding: '10px 14px' }}>
+                    <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 4 }}>Lucro líquido rotas</p>
+                    <p style={{ fontFamily: 'var(--fm)', fontSize: 16, color: 'var(--gr2)' }}>{fmtBRL(g?.total_liquido)}</p>
+                  </div>
+                  <div style={{ background: 'var(--s2)', borderRadius: 8, padding: '10px 14px' }}>
+                    <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 4 }}>Despesas fixas</p>
+                    <p style={{ fontFamily: 'var(--fm)', fontSize: 16, color: 'var(--re)' }}>− {fmtBRL(totalDespesas)}</p>
+                  </div>
+                  <div style={{ background: lucroReal >= 0 ? 'var(--gd)' : 'var(--rd)', borderRadius: 8, padding: '10px 14px', border: `1px solid ${lucroReal >= 0 ? 'rgba(16,185,129,.2)' : 'rgba(239,68,68,.2)'}` }}>
+                    <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 4 }}>Lucro real</p>
+                    <p style={{ fontFamily: 'var(--fm)', fontSize: 16, color: lucroReal >= 0 ? 'var(--gr2)' : 'var(--re)', fontWeight: 700 }}>{fmtBRL(lucroReal)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* BANNER UPGRADE FREE */}
         {!isPro && (

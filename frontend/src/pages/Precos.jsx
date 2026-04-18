@@ -8,11 +8,11 @@ export default function Precos() {
   const { user, tenant } = useAuth()
   const [loading, setLoading] = useState(false)
 
-  async function handleUpgrade() {
+  async function handleUpgrade(plano = 'pro') {
     if (!user) { nav('/cadastro'); return }
     setLoading(true)
     try {
-      const { url } = await criarCheckout()
+      const { url } = await criarCheckout(plano)
       window.location.href = url
     } catch (e) { alert(e.message) }
     finally { setLoading(false) }
@@ -27,36 +27,53 @@ export default function Precos() {
     finally { setLoading(false) }
   }
 
-  const isPro = tenant?.plano === 'pro'
+  const isPro  = tenant?.plano === 'pro'
+  const isSolo = tenant?.plano === 'solo'
 
   const PLANS = [
     {
-      name: 'Gratuito', price: 0, sub: 'Para experimentar',
+      name: 'Gratuito', price: 0, sub: 'Para experimentar', plano: 'free',
       feats: [
         { ok: true,  txt: 'Até 10 rotas por mês' },
-        { ok: true,  txt: '1 membro na equipe' },
-        { ok: true,  txt: 'Rateio automático' },
+        { ok: true,  txt: '1 membro' },
+        { ok: true,  txt: 'Cálculo de combustível' },
         { ok: false, txt: 'Dashboard com gráficos' },
-        { ok: false, txt: 'Veículos com consumo próprio' },
-        { ok: false, txt: 'Notificações por email' },
-        { ok: false, txt: 'Resumo semanal' },
-        { ok: false, txt: 'Filtros avançados' },
-        { ok: false, txt: 'Meta mensal' },
+        { ok: false, txt: 'Emails automáticos' },
+        { ok: false, txt: 'Veículos próprios' },
+        { ok: false, txt: 'Despesas fixas' },
+        { ok: false, txt: 'Lucro real mensal' },
       ],
     },
     {
-      name: 'Pro', price: 14.90, sub: 'por mês', featured: true,
+      name: 'Solo', price: 9.90, sub: 'por mês', featured: true, plano: 'solo',
+      badge: '🚴 Para motoristas solo',
+      feats: [
+        { ok: true, txt: 'Rotas ilimitadas' },
+        { ok: true, txt: '1 membro (você)' },
+        { ok: true, txt: 'Modo solo — lucro 100% seu' },
+        { ok: true, txt: 'Registro rápido de rota' },
+        { ok: true, txt: 'Lucro por hora (R$/h)' },
+        { ok: true, txt: 'Despesas fixas mensais' },
+        { ok: true, txt: 'Lucro real (após despesas)' },
+        { ok: true, txt: 'Meta diária e mensal' },
+        { ok: true, txt: 'Comparativo de plataformas' },
+        { ok: false, txt: 'Copiloto e rateio de equipe' },
+      ],
+    },
+    {
+      name: 'Pro', price: 14.90, sub: 'por mês', plano: 'pro',
+      badge: '👥 Para equipes',
       feats: [
         { ok: true, txt: 'Rotas ilimitadas' },
         { ok: true, txt: 'Até 5 membros na equipe' },
-        { ok: true, txt: 'Rateio automático (60% / 40%)' },
-        { ok: true, txt: 'Dashboard completo com gráficos' },
-        { ok: true, txt: 'Veículos ilimitados com consumo próprio' },
-        { ok: true, txt: 'Notificações por email (rota criada/concluída)' },
+        { ok: true, txt: 'Copiloto + rateio 60/40' },
+        { ok: true, txt: 'Dashboard completo' },
+        { ok: true, txt: 'Emails automáticos' },
+        { ok: true, txt: 'Veículos com consumo próprio' },
+        { ok: true, txt: 'Despesas fixas mensais' },
+        { ok: true, txt: 'Meta diária e mensal' },
         { ok: true, txt: 'Resumo semanal por email' },
-        { ok: true, txt: 'Alerta de rotas não concluídas' },
-        { ok: true, txt: 'Meta mensal com barra de progresso' },
-        { ok: true, txt: 'Filtros avançados por data, piloto, plataforma' },
+        { ok: true, txt: 'Filtros avançados' },
       ],
     },
   ]
@@ -70,31 +87,33 @@ export default function Precos() {
           <p className="section-sub" style={{ margin: '0 auto' }}>Comece grátis. Faça upgrade quando precisar de mais.</p>
         </div>
 
-        <div className="pricing-grid">
+        <div className="pricing-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", maxWidth: 900 }}>
           {PLANS.map(p => (
             <div key={p.name} className={`pricing-card ${p.featured ? 'featured' : ''}`}>
               {p.featured && <div className="pricing-badge">⭐ Mais popular</div>}
+              {p.badge && <p style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 6 }}>{p.badge}</p>}
               <p className="pricing-name">{p.name}</p>
               <p className="pricing-price">
                 {p.price === 0 ? 'Grátis' : <>R$ {p.price.toLocaleString('pt-BR', {minimumFractionDigits:2})}<span>/mês</span></>}
               </p>
               <p className="pricing-sub">{p.sub}</p>
 
-              {p.featured ? (
-                isPro ? (
-                  <button className="btn btn-ghost btn-full" style={{ marginBottom: 20 }} onClick={handlePortal} disabled={loading}>
-                    {loading ? 'Aguarde...' : '⚙️ Gerenciar assinatura'}
+              {(() => {
+                const current = tenant?.plano || 'free'
+                if (p.plano === current || (p.plano === 'pro' && isPro) || (p.plano === 'solo' && isSolo)) {
+                  return <button className="btn btn-ghost btn-full" style={{ marginBottom: 20 }} onClick={['pro','solo'].includes(current) ? handlePortal : undefined} disabled={loading}>
+                    {loading ? 'Aguarde...' : current === p.plano ? '✓ Plano atual' : '⚙️ Gerenciar'}
                   </button>
-                ) : (
-                  <button className="btn btn-primary btn-full" style={{ marginBottom: 20 }} onClick={handleUpgrade} disabled={loading}>
-                    {loading ? 'Redirecionando...' : user ? 'Assinar Pro →' : 'Começar agora →'}
+                }
+                if (p.plano === 'free') {
+                  return <button className="btn btn-ghost btn-full" style={{ marginBottom: 20 }} onClick={() => !user && nav('/cadastro')}>
+                    {user ? 'Fazer downgrade' : 'Começar grátis'}
                   </button>
-                )
-              ) : (
-                <button className="btn btn-ghost btn-full" style={{ marginBottom: 20 }} onClick={() => !user && nav('/cadastro')}>
-                  {user ? (isPro ? 'Plano atual: Free' : '✓ Plano atual') : 'Começar grátis'}
+                }
+                return <button className="btn btn-primary btn-full" style={{ marginBottom: 20 }} onClick={() => handleUpgrade(p.plano)} disabled={loading}>
+                  {loading ? 'Redirecionando...' : user ? `Assinar ${p.name} →` : 'Começar agora →'}
                 </button>
-              )}
+              })()}
 
               {p.feats.map((f, i) => (
                 <div key={i} className="pricing-feat">

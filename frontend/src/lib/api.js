@@ -64,8 +64,37 @@ export const deletarUsuario = id       => req(`/api/usuarios/${id}`, { method: '
 export const fetchMeta  = ()  => req('/api/auth/meta')
 export const salvarMeta = (v) => req('/api/auth/meta', { method: 'PUT', body: JSON.stringify({ meta_mensal: v }) })
 
+// CONFIG TENANT (solo, metas)
+export const fetchConfig  = ()  => req('/api/auth/config')
+export const salvarConfig = (d) => req('/api/auth/config', { method: 'PUT', body: JSON.stringify(d) })
+
+// DESPESAS FIXAS
+export const fetchDespesas  = ()       => req('/api/despesas')
+export const criarDespesa   = d        => req('/api/despesas',       { method: 'POST',   body: JSON.stringify(d) })
+export const editarDespesa  = (id, d)  => req(`/api/despesas/${id}`, { method: 'PUT',    body: JSON.stringify(d) })
+export const deletarDespesa = id       => req(`/api/despesas/${id}`, { method: 'DELETE' })
+
+export const CATEGORIAS_DESPESA = [
+  { v: 'cnpj',            l: '📋 CNPJ / Contador' },
+  { v: 'seguro',          l: '🛡️ Seguro do veículo' },
+  { v: 'manutencao',      l: '🔧 Manutenção / revisão' },
+  { v: 'combustivel_fixo',l: '⛽ Combustível fixo' },
+  { v: 'aluguel',         l: '🏠 Aluguel / escritório' },
+  { v: 'outros',          l: '💬 Outros' },
+]
+
+export function calcLucroPorHora(valorLiquido, horaInicio, horaFim) {
+  if (!horaInicio || !horaFim || !valorLiquido) return null
+  const [h1, m1] = horaInicio.split(':').map(Number)
+  const [h2, m2] = horaFim.split(':').map(Number)
+  let mins = (h2 * 60 + m2) - (h1 * 60 + m1)
+  if (mins <= 0) mins += 1440
+  const horas = mins / 60
+  return parseFloat((valorLiquido / horas).toFixed(2))
+}
+
 // BILLING
-export const criarCheckout  = ()       => req('/api/billing/checkout', { method: 'POST' })
+export const criarCheckout  = (plano='pro') => req('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ plano }) })
 export const abrirPortal    = ()       => req('/api/billing/portal')
 export const fetchBillingStatus = ()   => req('/api/billing/status')
 
