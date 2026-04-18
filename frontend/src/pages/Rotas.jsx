@@ -108,13 +108,15 @@ export default function Rotas() {
                 <label className="field-label">Data fim</label>
                 <input className="input" type="date" value={filters.data_fim} onChange={e => setF('data_fim', e.target.value)}/>
               </div>
-              <div className="field">
-                <label className="field-label">Piloto</label>
-                <select className="select" value={filters.piloto} onChange={e => setF('piloto', e.target.value)}>
-                  <option value="">Todos</option>
-                  {membros.map(m => <option key={m.nome}>{m.nome}</option>)}
-                </select>
-              </div>
+              {isPaid && (
+                <div className="field">
+                  <label className="field-label">Piloto</label>
+                  <select className="select" value={filters.piloto} onChange={e => setF('piloto', e.target.value)}>
+                    <option value="">Todos</option>
+                    {membros.map(m => <option key={m.nome}>{m.nome}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label className="field-label">Plataforma</label>
                 <select className="select" value={filters.plataforma} onChange={e => setF('plataforma', e.target.value)}>
@@ -249,7 +251,7 @@ export default function Rotas() {
                   { label: 'Veículo',       val: detalhe.veiculo_nome || 'Padrão' },
                   { label: 'Ponto coleta',  val: detalhe.ponto_coleta || '—' },
                   { label: 'KMs rodados',   val: detalhe.kms ? `${detalhe.kms} km` : '—' },
-                  { label: '⏱️ Lucro por hora', val: (() => { const lph = calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim); return lph ? fmtBRL(lph) + '/h' : '—' })() },
+                  ...(isSolo || tenant?.plano === 'pro' ? [{ label: '⏱️ Lucro por hora', val: (() => { const lph = calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim); return lph ? fmtBRL(lph) + '/h' : '—' })() }] : []),
                   { label: 'Saíram',        val: detalhe.pacotes_saida || '—' },
                   { label: 'Entregues',     val: detalhe.pacotes_entregues || '—' },
                   { label: 'Devolvidos',    val: detalhe.pacotes_devolvidos || '—' },
@@ -273,7 +275,7 @@ export default function Rotas() {
                 fetchRota(detalhe.id).then(r => { setDetalhe(r); load() }).catch(() => {})
               }}/>
 
-              {detalhe.status === 'concluida' && (
+              {detalhe.status === 'concluida' && !isSolo && (
                 <div>
                   <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 10 }}>Rateio (piloto 60% · copiloto 40%)</p>
                   {calcRateio(parseFloat(detalhe.lucro_liquido), detalhe.piloto, detalhe.copiloto).map(p => (

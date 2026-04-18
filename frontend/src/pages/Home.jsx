@@ -1,24 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchRecentes, fmtBRL, fmtData, calcRateio, statusLabel, plataformaEmoji, criarRota, fetchUsuarios, fetchVeiculos, calcCombustivel } from '../lib/api'
+import { fetchRecentes, fmtBRL, fmtData, calcRateio, statusLabel, plataformaEmoji, criarRota, fetchUsuarios, calcCombustivel } from '../lib/api'
 
 function RegistroRapido({ onSalvo }) {
-  const [show,  setShow]  = useState(false)
-  const [form,  setForm]  = useState({ ponto_coleta:'', kms:'', pacotes_saida:'', valor_total:'', data_rota: new Date().toISOString().slice(0,10) })
+  const [show,   setShow]   = useState(false)
+  const [form,   setForm]   = useState({ ponto_coleta:'', kms:'', pacotes_saida:'', valor_total:'', data_rota: new Date().toISOString().slice(0,10) })
   const [saving, setSaving] = useState(false)
   const [membros, setMembros] = useState([])
   const { user } = useAuth()
   const s = (k,v) => setForm(p => ({ ...p, [k]: v }))
 
-  useEffect(() => { if (show) fetchUsuarios().then(l => setMembros(l.filter(u => u.ativo))).catch(() => {}) }, [show])
+  useEffect(() => {
+    if (show) fetchUsuarios().then(l => setMembros(l.filter(u => u.ativo))).catch(() => {})
+  }, [show])
 
   async function handleSave(e) {
-    e.preventDefault(); setSaving(true)
+    e.preventDefault()
+    setSaving(true)
     try {
       const piloto = membros[0]?.nome || user?.nome || ''
-      await criarRota({ ...form, piloto, copiloto: piloto, status:'concluida', pacotes_entregues: form.pacotes_saida })
-      setShow(false); setForm({ ponto_coleta:'', kms:'', pacotes_saida:'', valor_total:'', data_rota: new Date().toISOString().slice(0,10) })
+      await criarRota({ ...form, piloto, copiloto: piloto, status: 'concluida', pacotes_entregues: form.pacotes_saida })
+      setShow(false)
+      setForm({ ponto_coleta:'', kms:'', pacotes_saida:'', valor_total:'', data_rota: new Date().toISOString().slice(0,10) })
       onSalvo?.()
     } catch(e) { alert(e.message) }
     finally { setSaving(false) }
@@ -28,7 +32,7 @@ function RegistroRapido({ onSalvo }) {
     <>
       <button
         onClick={() => setShow(true)}
-        style={{ position:'fixed', bottom:24, right:24, width:56, height:56, borderRadius:'50%', background:'var(--or)', border:'none', color:'#fff', fontSize:24, cursor:'pointer', boxShadow:'0 8px 24px rgba(249,115,22,.45)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', transition:'all .2s' }}
+        style={{ position:'fixed', bottom:24, right:24, width:56, height:56, borderRadius:'50%', background:'var(--or)', border:'none', color:'#fff', fontSize:24, cursor:'pointer', boxShadow:'0 8px 24px rgba(249,115,22,.45)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center' }}
         title="Registro rápido"
       >+</button>
       {show && (
@@ -40,7 +44,7 @@ function RegistroRapido({ onSalvo }) {
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
-                <p style={{ fontSize:12, color:'var(--t3)', marginBottom:4 }}>Cria rota concluída rapidamente com 4 campos.</p>
+                <p style={{ fontSize:12, color:'var(--t3)', marginBottom:4 }}>Cria rota concluída com 4 campos.</p>
                 <div className="field">
                   <label className="field-label">Ponto de coleta</label>
                   <input className="input" value={form.ponto_coleta} onChange={e => s('ponto_coleta', e.target.value)} placeholder="Ex: CD Guarulhos" required/>
@@ -65,7 +69,7 @@ function RegistroRapido({ onSalvo }) {
                 </div>
                 {form.kms > 0 && form.valor_total > 0 && (
                   <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 13px', fontSize:12, color:'var(--t2)' }}>
-                    Combustível estimado: <strong style={{ color:'var(--ye)' }}>{fmtBRL(calcCombustivel(form.kms))}</strong> →
+                    Combustível: <strong style={{ color:'var(--ye)' }}>{fmtBRL(calcCombustivel(form.kms))}</strong> →
                     Líquido: <strong style={{ color:'var(--gr2)' }}>{fmtBRL(form.valor_total - calcCombustivel(form.kms))}</strong>
                   </div>
                 )}
@@ -85,7 +89,7 @@ function RegistroRapido({ onSalvo }) {
 function HomeLogado({ user, tenant }) {
   const nav = useNavigate()
   const [recentes, setRecentes] = useState([])
-  const [loading, setLoading]   = useState(true)
+  const [loading,  setLoading]  = useState(true)
 
   function load() {
     setLoading(true)
@@ -97,106 +101,108 @@ function HomeLogado({ user, tenant }) {
   const concluidas = recentes.filter(r => r.status === 'concluida')
 
   return (
-    <div style={{ padding: '28px 0 60px' }}>
-      <div className="container">
-        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--ff)', fontSize: 26, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 4 }}>
-              Olá, {user.nome.split(' ')[0]} 👋
-            </h1>
-            <p style={{ color: 'var(--t2)', fontSize: 13 }}>{tenant?.nome}</p>
+    <>
+      <div style={{ padding: '28px 0 60px' }}>
+        <div className="container">
+          <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h1 style={{ fontFamily: 'var(--ff)', fontSize: 26, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 4 }}>
+                Olá, {user.nome.split(' ')[0]} 👋
+              </h1>
+              <p style={{ color: 'var(--t2)', fontSize: 13 }}>{tenant?.nome}</p>
+            </div>
+            {tenant?.plano !== 'pro' && (
+              <button className="btn btn-ghost btn-sm" style={{ borderColor: 'rgba(249,115,22,.3)', color: 'var(--or2)' }} onClick={() => nav('/precos')}>
+                ⭐ Upgrade Pro — R$ 14,90/mês
+              </button>
+            )}
           </div>
-          {tenant?.plano !== 'pro' && (
-            <button className="btn btn-ghost btn-sm" style={{ borderColor: 'rgba(249,115,22,.3)', color: 'var(--or2)' }} onClick={() => nav('/precos')}>
-              ⭐ Upgrade Pro — R$ 14,90/mês
-            </button>
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={() => nav('/rotas?nova=1')}>+ Nova rota</button>
+            <button className="btn btn-ghost" onClick={() => nav('/rotas')}>Ver todas as rotas</button>
+            <button className="btn btn-ghost" onClick={() => nav('/dashboard')}>Dashboard →</button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 style={{ fontFamily: 'var(--ff)', fontSize: 16, fontWeight: 700 }}>Rotas recentes</h2>
+            <button className="btn btn-ghost btn-sm" onClick={() => nav('/rotas')}>ver todas →</button>
+          </div>
+
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><div className="spinner"/></div>
+          ) : recentes.length === 0 ? (
+            <div className="card" style={{ marginBottom: 24 }}>
+              <div className="empty">
+                <div className="empty-icon">📭</div>
+                <p className="empty-title">Nenhuma rota ainda</p>
+                <p className="empty-sub">Crie a primeira rota para começar</p>
+                <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => nav('/rotas?nova=1')}>+ Criar primeira rota</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12, marginBottom: 24 }}>
+              {recentes.map(r => {
+                const taxa = r.pacotes_saida > 0 ? Math.round((r.pacotes_entregues / r.pacotes_saida) * 100) : null
+                return (
+                  <div key={r.id} className="rota-recente" onClick={() => nav(`/rotas?detalhe=${r.id}`)}>
+                    <div className="rota-recente-top">
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span className={`badge status-${r.status}`}>{statusLabel(r.status)}</span>
+                        <span className="badge badge-orange">▶ {r.piloto}</span>
+                        <span style={{ fontSize: 12 }}>{plataformaEmoji(r.plataforma)}</span>
+                      </div>
+                      {r.status === 'concluida' && <span className="rota-recente-val">{fmtBRL(r.lucro_liquido)}</span>}
+                    </div>
+                    <div className="rota-recente-meta">
+                      <span>📍 {r.ponto_coleta}</span>
+                      <span>📅 {fmtData(r.data_rota)}</span>
+                      {r.kms > 0 && <span>🛣️ {r.kms} km</span>}
+                      {r.veiculo_nome && <span>🚗 {r.veiculo_nome}</span>}
+                      {taxa !== null && <span className={`badge ${taxa >= 80 ? 'badge-green' : 'badge-yellow'}`} style={{ fontSize: 10 }}>{taxa}%</span>}
+                    </div>
+                    {r.status === 'planejada' && (
+                      <div style={{ marginTop: 10 }}>
+                        <button className="btn btn-sm" style={{ background: 'var(--bld)', color: 'var(--bl)', border: '1px solid rgba(59,130,246,.2)', fontSize: 11 }}
+                          onClick={e => { e.stopPropagation(); nav(`/rotas?editar=${r.id}`) }}>
+                          ✏️ Iniciar / editar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {concluidas.length > 0 && (
+            <div className="card">
+              <div className="card-header"><span className="card-title">Rateio das rotas recentes</span></div>
+              <div className="card-body">
+                {(() => {
+                  const acc = {}
+                  concluidas.forEach(r => {
+                    calcRateio(parseFloat(r.lucro_liquido), r.piloto, r.copiloto).forEach(p => {
+                      acc[p.nome] = (acc[p.nome] || 0) + p.valor
+                    })
+                  })
+                  return Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([nome, valor]) => (
+                    <div key={nome} className="rateio-row">
+                      <div className="rateio-left">
+                        <div className="avatar sm">{nome.slice(0, 2).toUpperCase()}</div>
+                        <p className="rateio-nome">{nome}</p>
+                      </div>
+                      <span className="rateio-val">{fmtBRL(valor)}</span>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </div>
           )}
         </div>
-
-        <div style={{ display: 'flex', gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={() => nav('/rotas?nova=1')}>+ Nova rota</button>
-          <button className="btn btn-ghost" onClick={() => nav('/rotas')}>Ver todas as rotas</button>
-          <button className="btn btn-ghost" onClick={() => nav('/dashboard')}>Dashboard →</button>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h2 style={{ fontFamily: 'var(--ff)', fontSize: 16, fontWeight: 700 }}>Rotas recentes</h2>
-          <button className="btn btn-ghost btn-sm" onClick={() => nav('/rotas')}>ver todas →</button>
-        </div>
-
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><div className="spinner"/></div>
-        ) : recentes.length === 0 ? (
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div className="empty">
-              <div className="empty-icon">📭</div>
-              <p className="empty-title">Nenhuma rota ainda</p>
-              <p className="empty-sub">Crie a primeira rota para começar</p>
-              <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => nav('/rotas?nova=1')}>+ Criar primeira rota</button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12, marginBottom: 24 }}>
-            {recentes.map(r => {
-              const taxa = r.pacotes_saida > 0 ? Math.round((r.pacotes_entregues / r.pacotes_saida) * 100) : null
-              return (
-                <div key={r.id} className="rota-recente" onClick={() => nav(`/rotas?detalhe=${r.id}`)}>
-                  <div className="rota-recente-top">
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span className={`badge status-${r.status}`}>{statusLabel(r.status)}</span>
-                      <span className="badge badge-orange">▶ {r.piloto}</span>
-                      <span style={{ fontSize: 12 }}>{plataformaEmoji(r.plataforma)}</span>
-                    </div>
-                    {r.status === 'concluida' && <span className="rota-recente-val">{fmtBRL(r.lucro_liquido)}</span>}
-                  </div>
-                  <div className="rota-recente-meta">
-                    <span>📍 {r.ponto_coleta}</span>
-                    <span>📅 {fmtData(r.data_rota)}</span>
-                    {r.kms > 0 && <span>🛣️ {r.kms} km</span>}
-                    {r.veiculo_nome && <span>🚗 {r.veiculo_nome}</span>}
-                    {taxa !== null && <span className={`badge ${taxa >= 80 ? 'badge-green' : 'badge-yellow'}`} style={{ fontSize: 10 }}>{taxa}%</span>}
-                  </div>
-                  {r.status === 'planejada' && (
-                    <div style={{ marginTop: 10 }}>
-                      <button className="btn btn-sm" style={{ background: 'var(--bld)', color: 'var(--bl)', border: '1px solid rgba(59,130,246,.2)', fontSize: 11 }}
-                        onClick={e => { e.stopPropagation(); nav(`/rotas?editar=${r.id}`) }}>
-                        ✏️ Iniciar / editar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {concluidas.length > 0 && (
-          <div className="card">
-            <div className="card-header"><span className="card-title">Rateio das rotas recentes</span></div>
-            <div className="card-body">
-              {(() => {
-                const acc = {}
-                concluidas.forEach(r => {
-                  calcRateio(parseFloat(r.lucro_liquido), r.piloto, r.copiloto).forEach(p => {
-                    acc[p.nome] = (acc[p.nome] || 0) + p.valor
-                  })
-                })
-                return Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([nome, valor]) => (
-                  <div key={nome} className="rateio-row">
-                    <div className="rateio-left">
-                      <div className="avatar sm">{nome.slice(0, 2).toUpperCase()}</div>
-                      <p className="rateio-nome">{nome}</p>
-                    </div>
-                    <span className="rateio-val">{fmtBRL(valor)}</span>
-                  </div>
-                ))
-              })()}
-            </div>
-          </div>
-        )}
       </div>
-    </div>
-    <RegistroRapido onSalvo={load}/>
+      <RegistroRapido onSalvo={load}/>
+    </>
   )
 }
 

@@ -21,7 +21,12 @@ export default function Dashboard() {
   const isPro = tenant?.plano === 'pro'
   const [stats,   setStats]   = useState(null)
   const [loading, setLoading] = useState(true)
-  const [period,  setPeriod]  = useState({ data_inicio: '', data_fim: '' })
+  const [period,  setPeriod]  = useState(() => {
+    const hoje = new Date()
+    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10)
+    const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0,10)
+    return { data_inicio: ini, data_fim: fim }
+  })
   const [meta,    setMeta]    = useState(0)
   const [despesas, setDespesas] = useState([])
   const [config,   setConfig]   = useState({ modo_solo: false, meta_diaria: 0 })
@@ -131,6 +136,30 @@ export default function Dashboard() {
           <div className="metric"><p className="metric-label">Combustível</p><p className="metric-value yellow">{fmtBRL(g.total_combustivel)}</p><p className="metric-sub">{Number(g.total_kms).toFixed(0)} km rodados</p></div>
           <div className="metric"><p className="metric-label">Taxa entrega</p><p className="metric-value">{taxaGeral !== null ? `${taxaGeral}%` : '—'}</p><p className="metric-sub">{g.total_entregues} entregues</p></div>
         </div>
+        <div className="grid4" style={{ marginBottom: 14 }}>
+          <div className="metric">
+            <p className="metric-label">Valor por pacote</p>
+            <p className="metric-value orange" style={{ fontSize:20 }}>
+              {parseInt(g.total_entregues) > 0 ? fmtBRL(parseFloat(g.total_bruto) / parseInt(g.total_entregues)) : '—'}
+            </p>
+            <p className="metric-sub">média por entrega</p>
+          </div>
+          <div className="metric">
+            <p className="metric-label">Custo combustível</p>
+            <p className="metric-value yellow" style={{ fontSize:20 }}>{fmtBRL(g.total_combustivel)}</p>
+            <p className="metric-sub">{Number(g.total_kms).toFixed(0)} km rodados</p>
+          </div>
+          <div className="metric">
+            <p className="metric-label">Total de rotas</p>
+            <p className="metric-value" style={{ fontSize:20 }}>{g.total_rotas}</p>
+            <p className="metric-sub">no período</p>
+          </div>
+          <div className="metric">
+            <p className="metric-label">Devolvidos</p>
+            <p className="metric-value" style={{ fontSize:20, color: parseInt(g.total_devolvidos) > 0 ? 'var(--re)' : 'var(--t)' }}>{g.total_devolvidos}</p>
+            <p className="metric-sub">pacotes</p>
+          </div>
+        </div>
 
         {/* UPGRADE BANNER FREE */}
         {!isPro && (
@@ -183,7 +212,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        {!meta && !editMeta && (
+        {isPaid && !meta && !editMeta && (
           <div style={{ marginBottom:14, padding:'12px 16px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
             <p style={{ fontSize:13, color:'var(--t2)' }}>🎯 Defina uma meta mensal de faturamento</p>
             <button className="btn btn-ghost btn-sm" onClick={() => setEditMeta(true)}>Definir meta</button>
@@ -222,12 +251,26 @@ export default function Dashboard() {
           </div>
         )}
 
-        {isPro && <div className="grid2" style={{ marginBottom: 14 }}>
-          {/* RATEIO */}
+        {isPaid && <div className="grid2" style={{ marginBottom: 14 }}>
+          {/* RATEIO ou SOLO LUCRO */}
           <div className="card">
-            <div className="card-header"><span className="card-title">Rateio acumulado</span></div>
+            <div className="card-header"><span className="card-title">{isSolo ? '💰 Seus ganhos' : 'Rateio acumulado'}</span></div>
             <div className="card-body">
-              {rateio.length === 0
+              {isSolo ? (
+                <div>
+                  {[
+                    { label: 'Lucro líquido total', val: fmtBRL(g?.total_liquido), color: 'var(--gr2)' },
+                    { label: 'Faturamento bruto',   val: fmtBRL(g?.total_bruto),   color: 'var(--or)' },
+                    { label: 'KMs rodados',          val: `${Number(g?.total_kms || 0).toFixed(0)} km`, color: 'var(--t)' },
+                    { label: 'Pacotes entregues',    val: g?.total_entregues || 0,  color: 'var(--t)' },
+                  ].map(item => (
+                    <div key={item.label} className="rateio-row">
+                      <p style={{ fontSize:13, color:'var(--t2)' }}>{item.label}</p>
+                      <span style={{ fontFamily:'var(--fm)', fontSize:15, color: item.color }}>{item.val}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : rateio.length === 0
                 ? <p style={{ color: 'var(--t3)', fontSize: 13 }}>Nenhuma rota concluída ainda</p>
                 : rateio.map(p => (
                   <div key={p.nome} className="rateio-row">
@@ -244,7 +287,7 @@ export default function Dashboard() {
 
           {/* POR PLATAFORMA */}
           <div className="card">
-            <div className="card-header"><span className="card-title">Rotas por plataforma</span>{!isPro && <span className="badge badge-orange" style={{fontSize:10}}>⭐ Pro</span>}</div>
+            <div className="card-header"><span className="card-title">Rotas por plataforma</span>{!isPaid && <span className="badge badge-orange" style={{fontSize:10}}>⭐ Pro/Solo</span>}</div>
             <div className="card-body">
               {plataformas.length === 0
                 ? <p style={{ color: 'var(--t3)', fontSize: 13 }}>Sem dados ainda</p>
@@ -273,7 +316,7 @@ export default function Dashboard() {
         </div>}
 
         {/* GANHO POR PESSOA */}
-        {isPro && rateio.length > 0 && (
+        {isPaid && !isSolo && rateio.length > 0 && (
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-header"><span className="card-title">Ganho por pessoa</span></div>
             <div className="card-body" style={{ paddingTop: 4 }}>
@@ -293,7 +336,7 @@ export default function Dashboard() {
         )}
 
         {/* TABELA POR PILOTO */}
-        {isPro && (stats.porPiloto || []).length > 0 && (
+        {isPaid && !isSolo && (stats.porPiloto || []).length > 0 && (
           <div className="card">
             <div className="card-header"><span className="card-title">Participação como piloto</span></div>
             <div className="table-wrap">
