@@ -87,9 +87,12 @@ function HomeLogado({ user, tenant }) {
   const [recentes, setRecentes] = useState([])
   const [loading, setLoading]   = useState(true)
 
-  useEffect(() => {
+  function load() {
+    setLoading(true)
     fetchRecentes().then(setRecentes).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   const concluidas = recentes.filter(r => r.status === 'concluida')
 
