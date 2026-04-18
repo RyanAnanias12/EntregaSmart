@@ -48,6 +48,50 @@ router.get('/', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+router.get('/historico', auth, async (req, res) => {
+  try {
+    const { mes } = req.query
+    const now = new Date()
+    const ano = mes ? mes.split('-')[0] : now.getFullYear()
+    const m   = mes ? mes.split('-')[1] : now.getMonth() + 1
+    const ini = `${ano}-${String(m).padStart(2,'0')}-01`
+    const fim = new Date(ano, m, 0).toISOString().slice(0,10)
+    const { rows } = await pool.query(`
+      SELECT data_rota::text as data,
+             COUNT(*) as rotas,
+             COALESCE(SUM(valor_total),0) as bruto,
+             COALESCE(SUM(lucro_liquido),0) as liquido,
+             COALESCE(SUM(pacotes_entregues),0) as pacotes,
+             COALESCE(SUM(kms),0) as kms
+      FROM rotas
+      WHERE tenant_id=$1 AND data_rota BETWEEN $2 AND $3 AND status='concluida'
+      GROUP BY data_rota ORDER BY data_rota ASC
+    `, [req.user.tenant_id, ini, fim])
+    res.json(rows)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.get('/comparativo', auth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT plataforma,
+             COUNT(*) as rotas,
+             COALESCE(AVG(valor_total),0) as media_bruto,
+             COALESCE(AVG(lucro_liquido),0) as media_liquido,
+             COALESCE(SUM(pacotes_entregues),0) as total_pacotes,
+             COALESCE(SUM(valor_total),0) as total_bruto,
+             CASE WHEN SUM(pacotes_entregues) > 0
+               THEN ROUND(SUM(valor_total)::numeric / NULLIF(SUM(pacotes_entregues),0), 2)
+               ELSE 0 END as valor_por_pacote,
+             COALESCE(AVG(kms),0) as media_kms
+      FROM rotas
+      WHERE tenant_id=$1 AND status='concluida'
+      GROUP BY plataforma ORDER BY total_bruto DESC
+    `, [req.user.tenant_id])
+    res.json(rows)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 router.get('/recentes', auth, async (req, res) => {
   try {
     const { rows } = await pool.query(`

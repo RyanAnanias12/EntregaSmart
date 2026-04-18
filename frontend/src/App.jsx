@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import Equipe    from './pages/Equipe'
 import Veiculos  from './pages/Veiculos'
 import Despesas  from './pages/Despesas'
+import Historico from './pages/Historico'
 import Precos    from './pages/Precos'
 
 function PrivateRoute({ children }) {
@@ -54,6 +55,7 @@ function Layout() {
         <Route path="/equipe"    element={<PrivateRoute><Equipe/></PrivateRoute>}/>
         <Route path="/veiculos"  element={<PrivateRoute><Veiculos/></PrivateRoute>}/>
         <Route path="/despesas"  element={<PrivateRoute><Despesas/></PrivateRoute>}/>
+        <Route path="/historico" element={<PrivateRoute><Historico/></PrivateRoute>}/>
         <Route path="*"          element={<Navigate to="/" replace/>}/>
       </Routes>
     </div>

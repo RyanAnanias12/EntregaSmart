@@ -39,6 +39,11 @@ export const editarVeiculo  = (id, d)  => req(`/api/veiculos/${id}`, { method: '
 export const deletarVeiculo = id       => req(`/api/veiculos/${id}`, { method: 'DELETE' })
 
 // GASTOS EXTRAS
+export const fetchHistorico   = (mes='')    => req(`/api/rotas/historico${mes ? '?mes='+mes : ''}`)
+export const fetchComparativo = ()          => req('/api/rotas/comparativo')
+export const atualizarKmVeiculo = (id, km)  => req(`/api/veiculos/${id}/km`,       { method: 'PUT', body: JSON.stringify({ km_rodados: km }) })
+export const registrarRevisao   = id        => req(`/api/veiculos/${id}/revisao`,   { method: 'PUT' })
+
 export const fetchGastos  = rotaId      => req(`/api/gastos/${rotaId}`)
 export const criarGasto   = (rotaId, d) => req(`/api/gastos/${rotaId}`,  { method: 'POST',   body: JSON.stringify(d) })
 export const editarGasto  = (id, d)     => req(`/api/gastos/item/${id}`, { method: 'PUT',    body: JSON.stringify(d) })

@@ -25,7 +25,7 @@ export default function Despesas() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { if (isPaid) load() else setLoading(false) }, [])
+  useEffect(() => { if (isPaid) load(); else setLoading(false) }, [])
 
   function openAdd()   { setEditando(null); setForm(EMPTY); setShowForm(true) }
   function openEdit(d) { setEditando(d); setForm({ categoria: d.categoria, descricao: d.descricao, valor: d.valor }); setShowForm(true) }

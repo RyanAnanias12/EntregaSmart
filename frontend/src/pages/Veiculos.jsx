@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { fetchVeiculos, criarVeiculo, editarVeiculo, deletarVeiculo } from '../lib/api'
+import { fetchVeiculos, criarVeiculo, editarVeiculo, deletarVeiculo, atualizarKmVeiculo, registrarRevisao } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { Toast } from '../components/Toast'
 
 const TIPOS = [{ v: 'carro', l: '🚗 Carro' }, { v: 'moto', l: '🏍️ Moto' }, { v: 'van', l: '🚐 Van' }]
 const COMBS = [{ v: 'alcool', l: 'Álcool' }, { v: 'gasolina', l: 'Gasolina' }, { v: 'diesel', l: 'Diesel' }, { v: 'eletrico', l: 'Elétrico' }]
-const EMPTY = { nome: '', placa: '', tipo: 'carro', consumo_kml: '', combustivel: 'alcool' }
+const EMPTY = { nome: '', placa: '', tipo: 'carro', consumo_kml: '', combustivel: 'alcool', km_atual: '', km_ultima_revisao: '', km_intervalo_revisao: '10000' }
 
 export default function Veiculos() {
   const { tenant } = useAuth()
@@ -31,7 +31,7 @@ export default function Veiculos() {
   useEffect(() => { load() }, [])
 
   function openAdd()  { setEditando(null); setForm(EMPTY); setShowForm(true) }
-  function openEdit(v) { setEditando(v); setForm({ nome: v.nome, placa: v.placa || '', tipo: v.tipo, consumo_kml: v.consumo_kml, combustivel: v.combustivel }); setShowForm(true) }
+  function openEdit(v) { setEditando(v); setForm({ nome: v.nome, placa: v.placa || '', tipo: v.tipo, consumo_kml: v.consumo_kml, combustivel: v.combustivel, km_atual: v.km_atual || '', km_ultima_revisao: v.km_ultima_revisao || '', km_intervalo_revisao: v.km_intervalo_revisao || '10000' }); setShowForm(true) }
 
   async function handleSave(e) {
     e.preventDefault(); setSaving(true)
@@ -105,10 +105,17 @@ export default function Veiculos() {
                     <button className="btn-icon" style={{ color: 'var(--re)', borderColor: 'rgba(239,68,68,.2)' }} onClick={() => handleDelete(v.id)}>🗑️</button>
                   </div>
                 </div>
+                {v.km_faltam !== undefined && parseFloat(v.km_faltam) <= 1500 && (
+                  <div style={{ background: parseFloat(v.km_faltam) <= 500 ? 'var(--rd)' : 'var(--yd)', border: `1px solid ${parseFloat(v.km_faltam) <= 500 ? 'rgba(239,68,68,.3)' : 'rgba(245,158,11,.3)'}`, borderRadius:8, padding:'8px 12px', marginBottom:8, fontSize:12, color: parseFloat(v.km_faltam) <= 500 ? 'var(--re)' : 'var(--ye)' }}>
+                    🔧 {parseFloat(v.km_faltam) <= 0 ? 'Revisão atrasada!' : `Faltam ${Number(v.km_faltam).toFixed(0)} km para revisão`}
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[
                     { label: 'Consumo',     val: `${v.consumo_kml} km/L` },
                     { label: 'Combustível', val: COMBS.find(c => c.v === v.combustivel)?.l || v.combustivel },
+                    { label: 'KM atual',    val: v.km_atual > 0 ? `${Number(v.km_atual).toLocaleString('pt-BR')} km` : '—' },
+                    { label: 'Próx. revisão', val: v.km_atual > 0 ? `${Number(parseFloat(v.km_ultima_revisao) + parseFloat(v.km_intervalo_revisao)).toLocaleString('pt-BR')} km` : '—' },
                   ].map(item => (
                     <div key={item.label} style={{ background: 'var(--s2)', borderRadius: 8, padding: '8px 12px' }}>
                       <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 3 }}>{item.label}</p>
@@ -116,6 +123,12 @@ export default function Veiculos() {
                     </div>
                   ))}
                 </div>
+                {v.km_atual > 0 && (
+                  <button className="btn btn-success btn-sm" style={{ marginTop:8, fontSize:11, width:'100%' }}
+                    onClick={async e => { e.stopPropagation(); if(confirm('Registrar revisão feita agora?')) { await registrarRevisao(v.id); load(); notify('Revisão registrada!') } }}>
+                    ✓ Registrei a revisão
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -159,6 +172,22 @@ export default function Veiculos() {
                   <label className="field-label">Consumo médio (km/L)</label>
                   <input className="input" type="number" step="0.1" min="1" value={form.consumo_kml} onChange={e => s('consumo_kml', e.target.value)} placeholder="Ex: 6.5" required/>
                   <p style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>Padrão geral é 6,5 km/L. Ajuste conforme o veículo real.</p>
+                </div>
+                <div className="divider"/>
+                <p style={{ fontSize:11, fontWeight:700, letterSpacing:'.07em', textTransform:'uppercase', color:'var(--t3)', marginBottom:8 }}>Quilometragem (opcional)</p>
+                <div className="grid2">
+                  <div className="field">
+                    <label className="field-label">KM atual do veículo</label>
+                    <input className="input" type="number" min="0" step="1" value={form.km_atual} onChange={e => s('km_atual', e.target.value)} placeholder="Ex: 85000"/>
+                  </div>
+                  <div className="field">
+                    <label className="field-label">KM da última revisão</label>
+                    <input className="input" type="number" min="0" step="1" value={form.km_ultima_revisao} onChange={e => s('km_ultima_revisao', e.target.value)} placeholder="Ex: 80000"/>
+                  </div>
+                </div>
+                <div className="field">
+                  <label className="field-label">Intervalo entre revisões (km)</label>
+                  <input className="input" type="number" min="1000" step="1000" value={form.km_intervalo_revisao} onChange={e => s('km_intervalo_revisao', e.target.value)} placeholder="Ex: 10000"/>
                 </div>
               </div>
               <div className="modal-footer">

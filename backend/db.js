@@ -112,6 +112,9 @@ async function initDB() {
     )
   `).catch(() => {})
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_despesas_tenant ON despesas_fixas(tenant_id)`).catch(() => {})
+  await pool.query(`ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS km_atual NUMERIC DEFAULT 0`).catch(() => {})
+  await pool.query(`ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS km_ultima_revisao NUMERIC DEFAULT 0`).catch(() => {})
+  await pool.query(`ALTER TABLE veiculos ADD COLUMN IF NOT EXISTS km_intervalo_revisao NUMERIC DEFAULT 10000`).catch(() => {})
   await pool.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stripe_sub TEXT`).catch(() => {})
 
   console.log('[DB] Tabelas prontas')

@@ -19,6 +19,7 @@ export default function Navbar() {
     { label: 'Equipe',    path: '/equipe' },
     { label: 'Veículos',  path: '/veiculos' },
     { label: 'Despesas',  path: '/despesas' },
+    { label: 'Histórico', path: '/historico' },
   ] : [
     { label: 'Início',  path: '/' },
     { label: 'Preços',  path: '/precos' },

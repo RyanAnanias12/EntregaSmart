@@ -1,7 +1,86 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchRecentes, fmtBRL, fmtData, calcRateio, statusLabel, plataformaEmoji } from '../lib/api'
+import { fetchRecentes, fmtBRL, fmtData, calcRateio, statusLabel, plataformaEmoji, criarRota, fetchUsuarios, fetchVeiculos, calcCombustivel } from '../lib/api'
+
+function RegistroRapido({ onSalvo }) {
+  const [show,  setShow]  = useState(false)
+  const [form,  setForm]  = useState({ ponto_coleta:'', kms:'', pacotes_saida:'', valor_total:'', data_rota: new Date().toISOString().slice(0,10) })
+  const [saving, setSaving] = useState(false)
+  const [membros, setMembros] = useState([])
+  const { user } = useAuth()
+  const s = (k,v) => setForm(p => ({ ...p, [k]: v }))
+
+  useEffect(() => { if (show) fetchUsuarios().then(l => setMembros(l.filter(u => u.ativo))).catch(() => {}) }, [show])
+
+  async function handleSave(e) {
+    e.preventDefault(); setSaving(true)
+    try {
+      const piloto = membros[0]?.nome || user?.nome || ''
+      await criarRota({ ...form, piloto, copiloto: piloto, status:'concluida', pacotes_entregues: form.pacotes_saida })
+      setShow(false); setForm({ ponto_coleta:'', kms:'', pacotes_saida:'', valor_total:'', data_rota: new Date().toISOString().slice(0,10) })
+      onSalvo?.()
+    } catch(e) { alert(e.message) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setShow(true)}
+        style={{ position:'fixed', bottom:24, right:24, width:56, height:56, borderRadius:'50%', background:'var(--or)', border:'none', color:'#fff', fontSize:24, cursor:'pointer', boxShadow:'0 8px 24px rgba(249,115,22,.45)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', transition:'all .2s' }}
+        title="Registro rápido"
+      >+</button>
+      {show && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShow(false)}>
+          <div className="modal" style={{ maxWidth:400 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">⚡ Registro rápido</h2>
+              <button className="btn-icon" onClick={() => setShow(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className="modal-body">
+                <p style={{ fontSize:12, color:'var(--t3)', marginBottom:4 }}>Cria rota concluída rapidamente com 4 campos.</p>
+                <div className="field">
+                  <label className="field-label">Ponto de coleta</label>
+                  <input className="input" value={form.ponto_coleta} onChange={e => s('ponto_coleta', e.target.value)} placeholder="Ex: CD Guarulhos" required/>
+                </div>
+                <div className="grid2">
+                  <div className="field">
+                    <label className="field-label">KMs rodados</label>
+                    <input className="input" type="number" min="0" value={form.kms} onChange={e => s('kms', e.target.value)} placeholder="0" required/>
+                  </div>
+                  <div className="field">
+                    <label className="field-label">Pacotes</label>
+                    <input className="input" type="number" min="0" value={form.pacotes_saida} onChange={e => s('pacotes_saida', e.target.value)} placeholder="0" required/>
+                  </div>
+                </div>
+                <div className="field">
+                  <label className="field-label">Valor recebido (R$)</label>
+                  <input className="input" type="number" step="0.01" min="0" value={form.valor_total} onChange={e => s('valor_total', e.target.value)} placeholder="0,00" required/>
+                </div>
+                <div className="field">
+                  <label className="field-label">Data</label>
+                  <input className="input" type="date" value={form.data_rota} onChange={e => s('data_rota', e.target.value)} required/>
+                </div>
+                {form.kms > 0 && form.valor_total > 0 && (
+                  <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 13px', fontSize:12, color:'var(--t2)' }}>
+                    Combustível estimado: <strong style={{ color:'var(--ye)' }}>{fmtBRL(calcCombustivel(form.kms))}</strong> →
+                    Líquido: <strong style={{ color:'var(--gr2)' }}>{fmtBRL(form.valor_total - calcCombustivel(form.kms))}</strong>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setShow(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Salvando...' : '⚡ Salvar rota'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 function HomeLogado({ user, tenant }) {
   const nav = useNavigate()
@@ -114,6 +193,7 @@ function HomeLogado({ user, tenant }) {
         )}
       </div>
     </div>
+    <RegistroRapido onSalvo={load}/>
   )
 }
 
