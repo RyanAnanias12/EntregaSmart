@@ -19,9 +19,10 @@ const PIE_COLORS = ['#f97316', '#3b82f6', '#f59e0b', '#10b981']
 export default function Dashboard() {
   const { tenant } = useAuth()
   const isPro = tenant?.plano === 'pro'
-  const [stats,   setStats]   = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [period,  setPeriod]  = useState(() => {
+  const { tenant } = useAuth()
+const isPro = tenant?.plano === 'pro'
+const isSolo = tenant?.plano === 'solo'   // ← adicionar
+const isPaid = isPro || isSolo             // ← adicionar
     const hoje = new Date()
     const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10)
     const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0,10)
