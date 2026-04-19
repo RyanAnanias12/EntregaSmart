@@ -4,6 +4,7 @@ import { fetchRotas, criarRota, editarRota, deletarRota, fetchRota, fetchUsuario
 import GastosRota from '../components/GastosRota'
 import RotaForm from '../components/RotaForm'
 import { Toast } from '../components/Toast'
+import { useAuth } from '../context/AuthContext'
 
 const STATUS_OPTS = [
   { v: '', l: 'Todos os status' },
@@ -13,6 +14,9 @@ const STATUS_OPTS = [
 ]
 
 export default function Rotas() {
+  const { tenant } = useAuth()
+  const isSolo = tenant?.plano === 'solo'
+  const isPaid = isSolo || tenant?.plano === 'pro'
   const [rotas,    setRotas]    = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
@@ -275,7 +279,7 @@ export default function Rotas() {
                 fetchRota(detalhe.id).then(r => { setDetalhe(r); load() }).catch(() => {})
               }}/>
 
-              {detalhe.status === 'concluida' && !isSolo && (
+              {detalhe.status === 'concluida' && tenant?.plano === 'pro' && (
                 <div>
                   <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 10 }}>Rateio (piloto 60% · copiloto 40%)</p>
                   {calcRateio(parseFloat(detalhe.lucro_liquido), detalhe.piloto, detalhe.copiloto).map(p => (

@@ -48,6 +48,7 @@ export default function Navbar() {
                     <div className="nav-avatar">{iniciais(user.nome)}</div>
                     <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nome}</span>
                     {tenant?.plano === 'pro' && <span className="badge badge-pro" style={{ fontSize: 9, padding: '2px 6px' }}>PRO</span>}
+                    {tenant?.plano === 'solo' && <span className="badge badge-pro" style={{ fontSize: 9, padding: '2px 6px', background:'rgba(59,130,246,.15)', color:'#60a5fa', border:'1px solid rgba(59,130,246,.3)' }}>SOLO</span>}
                     <span style={{ fontSize: 10 }}>▾</span>
                   </button>
                   {userMenu && (
@@ -55,13 +56,13 @@ export default function Navbar() {
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--b1)' }}>
                         <p style={{ fontSize: 13, fontWeight: 500 }}>{user.nome}</p>
                         <p style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{tenant?.nome}</p>
-                        <span className={`badge ${tenant?.plano === 'pro' ? 'badge-pro' : 'badge-gray'}`} style={{ fontSize: 10, marginTop: 6, display: 'inline-flex' }}>
-                          {tenant?.plano === 'pro' ? '⭐ Pro' : 'Free'}
+                        <span className={`badge ${tenant?.plano === 'pro' ? 'badge-pro' : tenant?.plano === 'solo' ? '' : 'badge-gray'}`} style={{ fontSize: 10, marginTop: 6, display: 'inline-flex', ...(tenant?.plano === 'solo' ? { background:'rgba(59,130,246,.1)', color:'#60a5fa', border:'1px solid rgba(59,130,246,.25)' } : {}) }}>
+                          {tenant?.plano === 'pro' ? '⭐ Pro' : tenant?.plano === 'solo' ? '🚴 Solo' : 'Free'}
                         </span>
                       </div>
-                      {tenant?.plano !== 'pro' && (
+                      {!['pro','solo'].includes(tenant?.plano) && (
                         <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'var(--od)', border: 'none', color: 'var(--or2)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--fb)', fontWeight: 600 }} onClick={() => go('/precos')}>
-                          ⭐ Fazer upgrade Pro
+                          ⭐ Fazer upgrade
                         </button>
                       )}
                       <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--fb)' }}

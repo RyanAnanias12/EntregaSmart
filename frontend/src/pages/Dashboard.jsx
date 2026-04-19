@@ -18,6 +18,7 @@ const PIE_COLORS = ['#f97316', '#3b82f6', '#f59e0b', '#10b981']
 
 export default function Dashboard() {
   const { tenant } = useAuth()
+<<<<<<< HEAD
   const isPro = tenant?.plano === 'pro'
   const isSolo = tenant?.plano === 'solo'
   const isPaid = isPro || isSolo
@@ -27,6 +28,11 @@ export default function Dashboard() {
   const fim  = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0,10)
 
   const [period, setPeriod] = useState({ data_inicio: ini, data_fim: fim })
+=======
+  const isPro  = tenant?.plano === 'pro'
+  const isSolo = tenant?.plano === 'solo'
+  const isPaid = isPro || isSolo
+>>>>>>> 7369aff (erros corrigidos)
   const [stats,   setStats]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [meta,    setMeta]    = useState(0)
@@ -121,13 +127,13 @@ export default function Dashboard() {
         })()}
 
         {/* BANNER UPGRADE FREE */}
-        {!isPro && (
+        {!isPaid && (
           <div style={{ marginBottom:16, padding:'14px 18px', background:'linear-gradient(135deg,rgba(249,115,22,.1),rgba(251,146,60,.05))', border:'1px solid rgba(249,115,22,.25)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
             <div>
               <p style={{ fontSize:13, fontWeight:600, color:'var(--or2)', marginBottom:2 }}>⭐ Desbloqueie o Dashboard completo</p>
-              <p style={{ fontSize:12, color:'var(--t3)' }}>Gráficos avançados, meta mensal, plataformas e muito mais no plano Pro.</p>
+              <p style={{ fontSize:12, color:'var(--t3)' }}>Gráficos, meta mensal, plataformas e muito mais nos planos Solo e Pro.</p>
             </div>
-            <a href="/precos" className="btn btn-primary btn-sm">Ver plano Pro →</a>
+            <a href="/precos" className="btn btn-primary btn-sm">Ver planos →</a>
           </div>
         )}
 

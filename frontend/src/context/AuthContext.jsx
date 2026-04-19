@@ -2,12 +2,16 @@ import { createContext, useContext, useState, useEffect } from 'react'
 
 const Ctx = createContext(null)
 
-const BASE = (import.meta.env?.VITE_API_URL || '').replace(/\/api$/, '')
+function getBase() {
+  return (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '')
+}
 
 async function fetchMe(token) {
-  const r = await fetch(BASE + '/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-  if (!r.ok) return null
-  return r.json()
+  try {
+    const r = await fetch(getBase() + '/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) return null
+    return r.json()
+  } catch { return null }
 }
 
 export function AuthProvider({ children }) {
@@ -25,17 +29,20 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const t = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (!t) { setLoading(false); return }
-    fetchMe(t)
-      .then(d => { if (!applyUser(d)) { localStorage.removeItem('token'); sessionStorage.removeItem('token') } })
-      .catch(() => { localStorage.removeItem('token'); sessionStorage.removeItem('token') })
-      .finally(() => setLoading(false))
+    // Sempre busca plano atualizado do banco no carregamento
+    fetchMe(t).then(d => {
+      if (!applyUser(d)) {
+        localStorage.removeItem('token')
+        sessionStorage.removeItem('token')
+      }
+    }).finally(() => setLoading(false))
   }, [])
 
   async function login(token, u, t, lembrar = false) {
     if (lembrar) { localStorage.setItem('token', token); sessionStorage.removeItem('token') }
     else         { sessionStorage.setItem('token', token); localStorage.removeItem('token') }
-    // Sempre busca plano atualizado do banco
-    const fresh = await fetchMe(token).catch(() => null)
+    // Busca plano atualizado do banco
+    const fresh = await fetchMe(token)
     if (fresh) {
       setUser({ id: fresh.id, nome: fresh.nome, email: fresh.email, papel: fresh.papel })
       setTenant({ id: fresh.tenant_id, nome: fresh.tenant_nome, plano: fresh.plano })
@@ -51,7 +58,7 @@ export function AuthProvider({ children }) {
   }
 
   function updateTenant(updates) {
-    setTenant(t => ({ ...t, ...updates }))
+    setTenant(prev => ({ ...prev, ...updates }))
   }
 
   return <Ctx.Provider value={{ user, tenant, loading, login, logout, updateTenant }}>{children}</Ctx.Provider>
