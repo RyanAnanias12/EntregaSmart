@@ -35,22 +35,36 @@ function MapsPontoColeta({ value, onChange }) {
 }
 
 export default function RotaForm({ initial, onSave, onClose, loading }) {
-  const { tenant } = useAuth()
-  const isPro = tenant?.plano === 'pro'
+  const { tenant, user } = useAuth()
+  const isPro  = tenant?.plano === 'pro'
+  const isFree = !['pro','solo'].includes(tenant?.plano)
   const [f, setF]           = useState(EMPTY)
   const [membros, setMembros] = useState([])
   const [veiculos, setVeiculos] = useState([])
 
   useEffect(() => {
-    fetchUsuarios().then(l => setMembros(l.filter(u => u.ativo))).catch(() => {})
+    fetchUsuarios().then(l => {
+      const ativos = l.filter(u => u.ativo)
+      setMembros(ativos)
+      // Preenche piloto automaticamente com o primeiro membro (ou usuário logado)
+      if (!initial) {
+        const piloto = ativos[0]?.nome || user?.nome || ''
+        const copiloto = ativos[1]?.nome || piloto
+        setF(p => ({ ...EMPTY, piloto, copiloto, preco_combustivel: p.preco_combustivel }))
+      }
+    }).catch(() => {
+      // Fallback: usa o nome do usuário logado
+      if (!initial) {
+        const piloto = user?.nome || ''
+        setF(p => ({ ...EMPTY, piloto, copiloto: piloto, preco_combustivel: p.preco_combustivel }))
+      }
+    })
     fetchVeiculos().then(setVeiculos).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (initial) {
       setF({ ...EMPTY, ...initial, data_rota: normDate(initial.data_rota) || EMPTY.data_rota, veiculo_id: initial.veiculo_id || '' })
-    } else {
-      setF(p => ({ ...EMPTY, piloto: membros[0]?.nome || '', copiloto: membros[1]?.nome || '', preco_combustivel: p.preco_combustivel }))
     }
   }, [initial])
 
@@ -89,10 +103,14 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
               <div className={isPro ? "grid2" : ""}>
                 <div className="field">
                   <label className="field-label">Piloto</label>
-                  <select className="select" value={f.piloto} onChange={e => s('piloto', e.target.value)} required>
-                    <option value="">Selecione...</option>
-                    {nomes.map(n => <option key={n}>{n}</option>)}
-                  </select>
+                  {membros.length > 1 ? (
+                    <select className="select" value={f.piloto} onChange={e => s('piloto', e.target.value)} required>
+                      <option value="">Selecione...</option>
+                      {nomes.map(n => <option key={n}>{n}</option>)}
+                    </select>
+                  ) : (
+                    <input className="input" value={f.piloto} onChange={e => s('piloto', e.target.value)} placeholder="Seu nome" required/>
+                  )}
                 </div>
                 {isPro && (
                   <div className="field">

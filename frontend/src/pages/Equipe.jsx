@@ -16,7 +16,10 @@ export default function Equipe() {
   async function load() {
     setLoading(true)
     try { setMembros(await fetchUsuarios()) }
-    catch { notify('Erro ao carregar', 'error') }
+    catch(e) {
+      // Não mostra erro genérico — pode ser plano Free sem permissão
+      if (!e.message?.includes('403')) notify('Erro ao carregar', 'error')
+    }
     finally { setLoading(false) }
   }
 
@@ -47,7 +50,9 @@ export default function Equipe() {
     catch (e) { notify(e.message, 'error') }
   }
 
+  const { tenant } = useAuth()
   const isAdmin = user?.papel === 'admin'
+  const isPro   = tenant?.plano === 'pro'
 
   return (
     <div style={{ padding: '28px 0 60px' }}>
@@ -57,8 +62,17 @@ export default function Equipe() {
             <h1 className="pg-title">Equipe</h1>
             <p className="pg-sub">Gerencie os membros da equipe</p>
           </div>
-          {isAdmin && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Adicionar membro</button>}
+          {isAdmin && isPro && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Adicionar membro</button>}
         </div>
+
+        {!isPro && (
+          <div style={{ marginBottom:16, padding:'20px 24px', background:'var(--s1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:'var(--r)', textAlign:'center' }}>
+            <p style={{ fontSize:20, marginBottom:8 }}>👥</p>
+            <p style={{ fontFamily:'var(--ff)', fontSize:15, fontWeight:700, marginBottom:6 }}>Equipe disponível no plano Pro</p>
+            <p style={{ fontSize:13, color:'var(--t2)', marginBottom:16 }}>Adicione até 5 membros, copiloto e rateio automático 60/40</p>
+            <a href="/precos" className="btn btn-primary" style={{ fontSize:13 }}>Ver plano Pro — R$ 14,90/mês →</a>
+          </div>
+        )}
 
         <div className="card">
           {loading ? (
