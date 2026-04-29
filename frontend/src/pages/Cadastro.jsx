@@ -6,10 +6,18 @@ import { useAuth } from '../context/AuthContext'
 export default function Cadastro() {
   const { login } = useAuth()
   const nav = useNavigate()
-  const [form, setForm] = useState({ nomeEquipe: '', nomeAdmin: '', email: '', senha: '' })
+  const [form, setForm] = useState({ nomeEquipe: '', nomeAdmin: '', email: '', senha: '', telefone: '' })
   const [err, setErr]   = useState('')
   const [loading, setLoading] = useState(false)
   const s = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  function formatTelefone(val) {
+    const nums = val.replace(/\D/g, '').slice(0, 11)
+    if (nums.length <= 2)  return nums
+    if (nums.length <= 7)  return `(${nums.slice(0,2)}) ${nums.slice(2)}`
+    if (nums.length <= 11) return `(${nums.slice(0,2)}) ${nums.slice(2,7)}-${nums.slice(7)}`
+    return val
+  }
 
   async function submit(e) {
     e.preventDefault(); setErr(''); setLoading(true)
@@ -25,7 +33,9 @@ export default function Cadastro() {
     <div className="auth-page">
       <div className="auth-bg"/>
       <div className="auth-card">
-        <div className="auth-logo"><div className="icon">🚚</div>Smart<span>Entregas</span></div>
+        <div className="auth-logo">
+          <img src="/logo.png" alt="Smart Entregas" style={{ height: 48, width: 'auto', marginBottom: 8 }}/>
+        </div>
         <h1 className="auth-title">Criar conta grátis</h1>
         <p className="auth-sub">Configure sua equipe em menos de 1 minuto</p>
         {err && <div style={{ background:'var(--rd)', border:'1px solid rgba(239,68,68,.25)', borderRadius:'var(--rsm)', padding:'10px 14px', fontSize:13, color:'var(--re)', marginBottom:16 }}>{err}</div>}
@@ -41,6 +51,17 @@ export default function Cadastro() {
           <div className="field">
             <label className="field-label">Email</label>
             <input className="input" type="email" placeholder="seu@email.com" value={form.email} onChange={e => s('email', e.target.value)} required autoComplete="email"/>
+          </div>
+          <div className="field">
+            <label className="field-label">Telefone / WhatsApp</label>
+            <input
+              className="input"
+              type="tel"
+              placeholder="(11) 99999-9999"
+              value={form.telefone}
+              onChange={e => s('telefone', formatTelefone(e.target.value))}
+              inputMode="numeric"
+            />
           </div>
           <div className="field">
             <label className="field-label">Senha</label>

@@ -16,7 +16,7 @@ const STATUS_OPTS = [
 export default function Rotas() {
   const { tenant } = useAuth()
   const isSolo = tenant?.plano === 'solo'
-  const isPaid = isSolo || tenant?.plano === 'pro'
+  const isPaid = tenant?.plano === 'pro' || isSolo
   const [rotas,    setRotas]    = useState([])
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
@@ -112,15 +112,13 @@ export default function Rotas() {
                 <label className="field-label">Data fim</label>
                 <input className="input" type="date" value={filters.data_fim} onChange={e => setF('data_fim', e.target.value)}/>
               </div>
-              {isPaid && (
-                <div className="field">
-                  <label className="field-label">Piloto</label>
-                  <select className="select" value={filters.piloto} onChange={e => setF('piloto', e.target.value)}>
-                    <option value="">Todos</option>
-                    {membros.map(m => <option key={m.nome}>{m.nome}</option>)}
-                  </select>
-                </div>
-              )}
+              <div className="field">
+                <label className="field-label">Piloto</label>
+                <select className="select" value={filters.piloto} onChange={e => setF('piloto', e.target.value)}>
+                  <option value="">Todos</option>
+                  {membros.map(m => <option key={m.nome}>{m.nome}</option>)}
+                </select>
+              </div>
               <div className="field">
                 <label className="field-label">Plataforma</label>
                 <select className="select" value={filters.plataforma} onChange={e => setF('plataforma', e.target.value)}>
@@ -255,7 +253,6 @@ export default function Rotas() {
                   { label: 'Veículo',       val: detalhe.veiculo_nome || 'Padrão' },
                   { label: 'Ponto coleta',  val: detalhe.ponto_coleta || '—' },
                   { label: 'KMs rodados',   val: detalhe.kms ? `${detalhe.kms} km` : '—' },
-                  ...(isSolo || tenant?.plano === 'pro' ? [{ label: '⏱️ Lucro por hora', val: (() => { const lph = calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim); return lph ? fmtBRL(lph) + '/h' : '—' })() }] : []),
                   { label: 'Saíram',        val: detalhe.pacotes_saida || '—' },
                   { label: 'Entregues',     val: detalhe.pacotes_entregues || '—' },
                   { label: 'Devolvidos',    val: detalhe.pacotes_devolvidos || '—' },

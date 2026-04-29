@@ -4,8 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { Toast } from '../components/Toast'
 
 export default function Equipe() {
-  const { user, tenant } = useAuth()
-  const isPro = tenant?.plano === 'pro'
+  const { user } = useAuth()
   const [membros, setMembros] = useState([])
   const [loading, setLoading] = useState(true)
   const [toast,   setToast]   = useState(null)
@@ -31,15 +30,7 @@ export default function Equipe() {
       setShowAdd(false)
       setForm({ nome: '', email: '', senha: '', papel: 'membro' })
       load()
-    } catch (e) {
-      if (e.message.includes('plano gratuito')) {
-        setShowAdd(false)
-        notify('Limite atingido. Faça upgrade para o plano Pro para adicionar mais membros.', 'error')
-        setTimeout(() => window.location.href = '/precos', 2000)
-      } else {
-        notify(e.message, 'error')
-      }
-    }
+    } catch (e) { notify(e.message, 'error') }
   }
 
   async function toggleAtivo(m) {
@@ -66,10 +57,7 @@ export default function Equipe() {
             <h1 className="pg-title">Equipe</h1>
             <p className="pg-sub">Gerencie os membros da equipe</p>
           </div>
-          {isAdmin && (isPro
-            ? <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Adicionar membro</button>
-            : <a href="/precos" className="btn btn-ghost btn-sm" style={{ borderColor:'rgba(249,115,22,.3)', color:'var(--or2)' }}>⭐ Pro para adicionar membros</a>
-          )}
+          {isAdmin && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Adicionar membro</button>}
         </div>
 
         <div className="card">

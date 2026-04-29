@@ -117,12 +117,13 @@ router.get('/stats', auth, async (req, res) => {
 
     const geral = await pool.query(`
       SELECT COUNT(*) as total_rotas,
-             COALESCE(SUM(valor_total),0)       as total_bruto,
-             COALESCE(SUM(lucro_liquido),0)      as total_liquido,
-             COALESCE(SUM(kms),0)                as total_kms,
-             COALESCE(SUM(pacotes_entregues),0)  as total_entregues,
-             COALESCE(SUM(pacotes_devolvidos),0) as total_devolvidos,
-             COALESCE(SUM(custo_combustivel),0)  as total_combustivel
+             COALESCE(SUM(valor_total),0)        as total_bruto,
+             COALESCE(SUM(bonificacao),0)         as total_bonificacao,
+             COALESCE(SUM(lucro_liquido),0)       as total_liquido,
+             COALESCE(SUM(kms),0)                 as total_kms,
+             COALESCE(SUM(pacotes_entregues),0)   as total_entregues,
+             COALESCE(SUM(pacotes_devolvidos),0)  as total_devolvidos,
+             COALESCE(SUM(custo_combustivel),0)   as total_combustivel
       FROM rotas WHERE ${w}`, params)
 
     const porMes = await pool.query(`
@@ -205,24 +206,35 @@ router.post('/', auth, async (req, res) => {
     }
     if (d.preco_combustivel) preco = parseFloat(d.preco_combustivel)
 
-    const comb = calcComb(d.kms || 0, consumo, preco)
-    const liq  = parseFloat(((d.valor_total || 0) - comb).toFixed(2))
+    const comb  = calcComb(d.kms || 0, consumo, preco)
+    const bonus = parseFloat(d.bonificacao || 0)
+    const liq   = parseFloat(((d.valor_total || 0) + bonus - comb).toFixed(2))
 
     const { rows: [r] } = await pool.query(`
-      INSERT INTO rotas (tenant_id,criado_por,veiculo_id,plataforma,piloto,copiloto,ponto_coleta,hora_inicio,hora_fim,data_rota,status,kms,pacotes_saida,pacotes_entregues,pacotes_devolvidos,paradas,valor_total,custo_combustivel,lucro_liquido,preco_combustivel,observacoes)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *
+      INSERT INTO rotas (tenant_id,criado_por,veiculo_id,plataforma,piloto,copiloto,ponto_coleta,hora_inicio,hora_fim,data_rota,status,kms,pacotes_saida,pacotes_entregues,pacotes_devolvidos,paradas,valor_total,bonificacao,custo_combustivel,lucro_liquido,preco_combustivel,observacoes)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *
     `, [req.user.tenant_id,req.user.id,d.veiculo_id||null,d.plataforma||'mercado_livre',
         d.piloto,d.copiloto||'',d.ponto_coleta,d.hora_inicio||null,d.hora_fim||null,
         d.data_rota,d.status||'planejada',d.kms||0,d.pacotes_saida||0,d.pacotes_entregues||0,
-        d.pacotes_devolvidos||0,d.paradas||0,d.valor_total||0,comb,liq,preco,d.observacoes||null])
+        d.pacotes_devolvidos||0,d.paradas||0,d.valor_total||0,bonus,comb,liq,preco,d.observacoes||null])
 
     r.rateio = calcRateio(liq, r.piloto, r.copiloto)
 
-    // Notificação de nova rota
+    // Notificação de nova rota — pro envia para piloto e copiloto individualmente
     if (process.env.RESEND_API_KEY) {
-      const emails = await getEmails(req.user.tenant_id)
       const tenantNome = await getTenantNome(req.user.tenant_id)
-      enviarNotificacaoRotaCriada(r, emails, tenantNome).catch(() => {})
+      if (req.user.plano === 'pro') {
+        const { rows: usuarios } = await pool.query(
+          `SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND ativo=true`,
+          [req.user.tenant_id]
+        )
+        const emailsSet = new Set(usuarios.map(u => u.email))
+        usuarios.forEach(u => { if (u.nome === r.piloto || u.nome === r.copiloto) emailsSet.add(u.email) })
+        enviarNotificacaoRotaCriada(r, [...emailsSet], tenantNome, 'pro').catch(() => {})
+      } else {
+        const emails = await getEmails(req.user.tenant_id)
+        enviarNotificacaoRotaCriada(r, emails, tenantNome, req.user.plano).catch(() => {})
+      }
     }
 
     res.status(201).json(r)
@@ -246,25 +258,36 @@ router.put('/:id', auth, async (req, res) => {
     }
     if (d.preco_combustivel) preco = parseFloat(d.preco_combustivel)
 
-    const comb = calcComb(d.kms || 0, consumo, preco)
-    const liq  = parseFloat(((d.valor_total || 0) - comb).toFixed(2))
+    const comb  = calcComb(d.kms || 0, consumo, preco)
+    const bonus = parseFloat(d.bonificacao || 0)
+    const liq   = parseFloat(((d.valor_total || 0) + bonus - comb).toFixed(2))
 
     const { rows: [r] } = await pool.query(`
-      UPDATE rotas SET veiculo_id=$1,plataforma=$2,piloto=$3,copiloto=$4,ponto_coleta=$5,hora_inicio=$6,hora_fim=$7,data_rota=$8,status=$9,kms=$10,pacotes_saida=$11,pacotes_entregues=$12,pacotes_devolvidos=$13,paradas=$14,valor_total=$15,custo_combustivel=$16,lucro_liquido=$17,preco_combustivel=$18,observacoes=$19
-      WHERE id=$20 AND tenant_id=$21 RETURNING *
+      UPDATE rotas SET veiculo_id=$1,plataforma=$2,piloto=$3,copiloto=$4,ponto_coleta=$5,hora_inicio=$6,hora_fim=$7,data_rota=$8,status=$9,kms=$10,pacotes_saida=$11,pacotes_entregues=$12,pacotes_devolvidos=$13,paradas=$14,valor_total=$15,bonificacao=$16,custo_combustivel=$17,lucro_liquido=$18,preco_combustivel=$19,observacoes=$20
+      WHERE id=$21 AND tenant_id=$22 RETURNING *
     `, [d.veiculo_id||null,d.plataforma||'mercado_livre',d.piloto,d.copiloto,d.ponto_coleta,
         d.hora_inicio||null,d.hora_fim||null,d.data_rota,d.status||'planejada',
         d.kms||0,d.pacotes_saida||0,d.pacotes_entregues||0,d.pacotes_devolvidos||0,d.paradas||0,
-        d.valor_total||0,comb,liq,preco,d.observacoes||null,req.params.id,req.user.tenant_id])
+        d.valor_total||0,bonus,comb,liq,preco,d.observacoes||null,req.params.id,req.user.tenant_id])
 
     r.rateio = calcRateio(liq, r.piloto, r.copiloto)
 
-    // Notificação quando conclui
+    // Notificação quando conclui — pro envia para piloto e copiloto individualmente
     const foiConcluida = atual.status !== 'concluida' && d.status === 'concluida'
     if (foiConcluida && process.env.RESEND_API_KEY) {
-      const emails = await getEmails(req.user.tenant_id)
       const tenantNome = await getTenantNome(req.user.tenant_id)
-      enviarNotificacaoRotaConcluida(r, r.rateio, emails, tenantNome).catch(() => {})
+      if (req.user.plano === 'pro') {
+        const { rows: usuarios } = await pool.query(
+          `SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND ativo=true`,
+          [req.user.tenant_id]
+        )
+        const emailsSet = new Set(usuarios.map(u => u.email))
+        usuarios.forEach(u => { if (u.nome === r.piloto || u.nome === r.copiloto) emailsSet.add(u.email) })
+        enviarNotificacaoRotaConcluida(r, r.rateio, [...emailsSet], tenantNome, [], 'pro').catch(() => {})
+      } else {
+        const emails = await getEmails(req.user.tenant_id)
+        enviarNotificacaoRotaConcluida(r, r.rateio, emails, tenantNome, [], req.user.plano).catch(() => {})
+      }
     }
 
     res.json(r)
@@ -275,6 +298,61 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     await pool.query(`DELETE FROM rotas WHERE id=$1 AND tenant_id=$2`, [req.params.id, req.user.tenant_id])
     res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+
+
+// GET /api/rotas/comparativo-inteligente
+router.get('/comparativo-inteligente', auth, async (req, res) => {
+  try {
+    const dias = parseInt(req.query.dias) || 30
+    const ini  = new Date(Date.now() - dias * 86400000).toISOString().slice(0,10)
+    const fim  = new Date().toISOString().slice(0,10)
+
+    const { rows } = await pool.query(`
+      SELECT
+        plataforma,
+        COUNT(*)                                        as rotas,
+        COALESCE(SUM(pacotes_entregues),0)              as pacotes,
+        COALESCE(SUM(valor_total),0)                    as bruto,
+        COALESCE(SUM(lucro_liquido),0)                  as liquido,
+        COALESCE(AVG(NULLIF(pacotes_entregues,0)),0)    as media_pacotes,
+        COALESCE(
+          SUM(valor_total) / NULLIF(SUM(pacotes_entregues),0), 0
+        )                                               as valor_por_pacote
+      FROM rotas
+      WHERE tenant_id=$1 AND data_rota BETWEEN $2 AND $3
+        AND status='concluida' AND pacotes_entregues > 0
+      GROUP BY plataforma
+      ORDER BY valor_por_pacote DESC
+    `, [req.user.tenant_id, ini, fim])
+
+    if (rows.length < 2) return res.json({ rows, insights: [] })
+
+    // Gerar insights comparativos
+    const insights = []
+    const melhor = rows[0]
+    const pior   = rows[rows.length - 1]
+
+    if (melhor && pior && melhor.plataforma !== pior.plataforma) {
+      const difPacote = parseFloat(melhor.valor_por_pacote) - parseFloat(pior.valor_por_pacote)
+      const totalPacotesPior = parseInt(pior.pacotes)
+      const ganhoExtra = parseFloat((difPacote * totalPacotesPior).toFixed(2))
+
+      insights.push({
+        tipo: 'melhor_plataforma',
+        msg: `Você ganha ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(melhor.valor_por_pacote)}/pacote no ${melhor.plataforma.replace('_',' ')} e ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(pior.valor_por_pacote)}/pacote na ${pior.plataforma.replace('_',' ')}.`,
+        acao: ganhoExtra > 0
+          ? `Nos últimos ${dias} dias, priorizar ${melhor.plataforma.replace('_',' ')} te daria R$ ${ganhoExtra.toFixed(2)} a mais.`
+          : null,
+        ganho_extra: ganhoExtra,
+        melhor: melhor.plataforma,
+        pior: pior.plataforma,
+      })
+    }
+
+    res.json({ rows, insights, periodo: { ini, fim, dias } })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 

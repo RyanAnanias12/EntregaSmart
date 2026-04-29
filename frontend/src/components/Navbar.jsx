@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { iniciais } from '../lib/api'
+import { useTheme } from '../hooks/useTheme'
 
 export default function Navbar() {
   const { user, tenant, logout } = useAuth()
+  const { tema, toggle: toggleTema } = useTheme()
   const nav = useNavigate()
   const loc = useLocation()
   const [open, setOpen]       = useState(false)
@@ -17,9 +19,11 @@ export default function Navbar() {
     { label: 'Rotas',     path: '/rotas' },
     { label: 'Dashboard', path: '/dashboard' },
     { label: 'Equipe',    path: '/equipe' },
-    { label: 'Veículos',  path: '/veiculos' },
-    { label: 'Despesas',  path: '/despesas' },
-    { label: 'Histórico', path: '/historico' },
+    { label: 'Veículos',        path: '/veiculos' },
+    { label: 'Abastecimentos',  path: '/abastecimentos' },
+    { label: 'Despesas',        path: '/despesas' },
+    { label: 'Histórico',     path: '/historico' },
+    { label: '🏆 Bônus',      path: '/bonificacoes' },
   ] : [
     { label: 'Início',  path: '/' },
     { label: 'Preços',  path: '/precos' },
@@ -31,8 +35,7 @@ export default function Navbar() {
         <div className="container">
           <div className="nav-inner">
             <div className="nav-logo" onClick={() => go('/')}>
-              <div className="nav-logo-icon">🚚</div>
-              Smart<span>Entregas</span>
+              <img src="/logo.png" alt="Smart Entregas" style={{ height: 34, width: 'auto', display: 'block' }}/>
             </div>
             <nav className="nav-links">
               {links.map(l => (
@@ -65,6 +68,19 @@ export default function Navbar() {
                           ⭐ Fazer upgrade
                         </button>
                       )}
+                      <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--fb)', display:'flex', alignItems:'center', justifyContent:'space-between' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--s3)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                        onClick={toggleTema}>
+                        <span>{tema === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}</span>
+                        <span style={{ fontSize:10, color:'var(--t3)', background:'var(--s3)', borderRadius:4, padding:'2px 6px' }}>{tema === 'dark' ? 'DARK' : 'LIGHT'}</span>
+                      </button>
+                      <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--fb)' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--s3)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                        onClick={() => { go('/combustivel'); setUserMenu(false) }}>
+                        ⛽ Combustível
+                      </button>
                       <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--fb)' }}
                         onMouseOver={e => e.target.style.background = 'var(--s3)'}
                         onMouseOut={e => e.target.style.background = 'transparent'}

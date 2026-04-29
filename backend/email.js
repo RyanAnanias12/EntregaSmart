@@ -34,8 +34,9 @@ function baseTemplate(content) {
 }
 
 // Nova rota criada
-async function enviarNotificacaoRotaCriada(rota, emails, tenantNome) {
+async function enviarNotificacaoRotaCriada(rota, emails, tenantNome, plano = 'pro') {
   if (!emails?.length) return
+  const isPro = plano === 'pro'
   const html = baseTemplate(`
     <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:6px">Nova rota registrada</h2>
     <p style="color:#7c7c96;font-size:13px;margin-bottom:24px">${tenantNome}</p>
@@ -43,7 +44,7 @@ async function enviarNotificacaoRotaCriada(rota, emails, tenantNome) {
       <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06)">
         <div style="display:flex;gap:8px;margin-bottom:10px">
           <span style="background:rgba(249,115,22,0.09);color:#fb923c;border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600">▶ ${rota.piloto}</span>
-          <span style="background:rgba(255,255,255,0.05);color:#7c7c96;border:1px solid rgba(255,255,255,0.06);padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600">${rota.copiloto}</span>
+          ${isPro && rota.copiloto ? `<span style="background:rgba(255,255,255,0.05);color:#7c7c96;border:1px solid rgba(255,255,255,0.06);padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600">${rota.copiloto}</span>` : ''}
         </div>
       </div>
       <div style="padding:16px 20px">
@@ -64,6 +65,9 @@ async function enviarNotificacaoRotaCriada(rota, emails, tenantNome) {
       </div>
     </div>
     ${rota.observacoes ? `<p style="color:#7c7c96;font-size:13px;padding:12px 16px;background:#1c1c22;border-radius:8px">📝 ${rota.observacoes}</p>` : ''}
+    <a href="${process.env.FRONTEND_URL}/rotas" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;margin-top:16px">
+      Ver rota →
+    </a>
   `)
 
   for (const email of emails) {
@@ -72,15 +76,16 @@ async function enviarNotificacaoRotaCriada(rota, emails, tenantNome) {
 }
 
 // Rota concluída com rateio
-async function enviarNotificacaoRotaConcluida(rota, rateio, emails, tenantNome, gastos = []) {
+async function enviarNotificacaoRotaConcluida(rota, rateio, emails, tenantNome, gastos = [], plano = 'pro') {
   if (!emails?.length) return
-  const rateioHtml = rateio.map(p => `
+  const isPro = plano === 'pro'
+  const rateioHtml = isPro ? rateio.map(p => `
     <tr>
       <td style="padding:8px 0;color:#f4f4f6;font-size:13px;font-weight:500">${p.nome}</td>
       <td style="padding:8px 0;color:#7c7c96;font-size:12px">${p.role}</td>
       <td style="padding:8px 0;color:#34d399;font-size:14px;font-weight:700;text-align:right;font-family:monospace">${fmtBRL(p.valor)}</td>
     </tr>
-  `).join('')
+  `).join('') : ''
 
   const html = baseTemplate(`
     <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:6px">✅ Rota concluída!</h2>
@@ -106,6 +111,7 @@ async function enviarNotificacaoRotaConcluida(rota, rateio, emails, tenantNome, 
         `).join('')}
       </table>
     </div>
+    ${isPro ? `
     <div style="background:#141418;border:1px solid rgba(255,255,255,0.06);border-radius:12px;overflow:hidden">
       <div style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.06)">
         <p style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4a4a62;margin:0">Rateio (piloto 60% · copiloto 40%)</p>
@@ -113,7 +119,10 @@ async function enviarNotificacaoRotaConcluida(rota, rateio, emails, tenantNome, 
       <div style="padding:8px 20px">
         <table style="width:100%;border-collapse:collapse">${rateioHtml}</table>
       </div>
-    </div>
+    </div>` : ''}
+    <a href="${process.env.FRONTEND_URL}/rotas" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;margin-top:16px">
+      Ver rota →
+    </a>
   `)
 
   for (const email of emails) {
@@ -215,4 +224,97 @@ async function enviarRotasAtrasadas(rotas, emails, tenantNome, data) {
   }
 }
 
-module.exports = { enviarNotificacaoRotaCriada, enviarNotificacaoRotaConcluida, enviarResumoSemanal, enviarBoasVindas, enviarRotasAtrasadas }
+
+// Relatório mensal — enviado no dia 1 de cada mês
+async function enviarRelatorioMensal(stats, statsMesAnterior, emails, tenantNome, mes) {
+  if (!emails?.length) return
+  const diff = parseFloat(stats.total_liquido) - parseFloat(statsMesAnterior.total_liquido || 0)
+  const diffPct = statsMesAnterior.total_liquido > 0
+    ? Math.round((diff / statsMesAnterior.total_liquido) * 100)
+    : null
+  const corDiff = diff >= 0 ? '#10b981' : '#ef4444'
+  const setaDiff = diff >= 0 ? '▲' : '▼'
+
+  const html = baseTemplate(`
+    <h2 style="font-size:22px;font-weight:800;color:#f4f4f6;margin-bottom:4px">📊 Relatório de ${mes}</h2>
+    <p style="color:#7c7c96;font-size:13px;margin-bottom:24px">${tenantNome}</p>
+
+    <div style="background:#141418;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px;margin-bottom:16px">
+      <p style="font-size:10px;color:#4a4a62;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Lucro líquido do mês</p>
+      <p style="font-family:monospace;font-size:36px;font-weight:800;color:#10b981;margin-bottom:4px">${fmtBRL(stats.total_liquido)}</p>
+      ${diffPct !== null ? `
+        <p style="font-size:12px;color:${corDiff}">${setaDiff} ${Math.abs(diffPct)}% em relação ao mês anterior (${fmtBRL(statsMesAnterior.total_liquido)})</p>
+      ` : ''}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      ${[
+        { l: 'Faturamento bruto', v: fmtBRL(stats.total_bruto), c: '#f97316' },
+        { l: 'Total de rotas',    v: stats.total_rotas + ' rotas', c: '#f4f4f6' },
+        { l: 'KMs rodados',       v: Number(stats.total_kms||0).toFixed(0) + ' km', c: '#f4f4f6' },
+        { l: 'Pacotes entregues', v: stats.total_entregues, c: '#f4f4f6' },
+      ].map(i => `
+        <div style="background:#1c1c22;border-radius:10px;padding:14px">
+          <p style="font-size:10px;color:#4a4a62;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">${i.l}</p>
+          <p style="font-family:monospace;font-size:18px;font-weight:700;color:${i.c}">${i.v}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    ${statsMesAnterior.total_rotas > 0 ? `
+    <div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+      <p style="color:#f97316;font-size:12px;font-weight:600;margin-bottom:6px">📈 Comparativo com ${statsMesAnterior.mes}</p>
+      <p style="color:#7c7c96;font-size:12px">Rotas: ${statsMesAnterior.total_rotas} → <strong style="color:#f4f4f6">${stats.total_rotas}</strong> &nbsp;·&nbsp; Bruto: ${fmtBRL(statsMesAnterior.total_bruto)} → <strong style="color:#f4f4f6">${fmtBRL(stats.total_bruto)}</strong></p>
+    </div>
+    ` : ''}
+
+    <a href="${process.env.FRONTEND_URL}/dashboard" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">
+      Ver dashboard completo →
+    </a>
+  `)
+
+  for (const email of emails) {
+    await resend.emails.send({ from: FROM, to: email, subject: `📊 Seu relatório de ${mes} — ${tenantNome}`, html }).catch(console.error)
+  }
+}
+
+// Alerta de meta mensal (50%, 80%, 100%)
+async function enviarAlertaMeta(pct, atual, meta, emails, tenantNome) {
+  if (!emails?.length) return
+  const configs = {
+    50:  { emoji: '🎯', titulo: 'Metade da meta atingida!',  cor: '#f59e0b', msg: 'Você está na metade do caminho. Continue assim!' },
+    80:  { emoji: '🔥', titulo: '80% da meta atingida!',      cor: '#f97316', msg: 'Quase lá! Faltam só ' + fmtBRL(meta - atual) + ' para bater a meta.' },
+    100: { emoji: '🏆', titulo: 'Meta mensal atingida!',      cor: '#10b981', msg: 'Parabéns! Você bateu a meta do mês. Tudo que vier agora é lucro extra.' },
+  }
+  const c = configs[pct]
+  if (!c) return
+
+  const html = baseTemplate(`
+    <div style="text-align:center;padding:28px 0 20px">
+      <div style="font-size:52px;margin-bottom:12px">${c.emoji}</div>
+      <h2 style="font-size:22px;font-weight:800;color:#f4f4f6;margin-bottom:6px">${c.titulo}</h2>
+      <p style="color:#7c7c96;font-size:13px;margin-bottom:24px">${tenantNome}</p>
+    </div>
+
+    <div style="background:#141418;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:20px;margin-bottom:16px;text-align:center">
+      <p style="font-size:10px;color:#4a4a62;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Progresso da meta</p>
+      <div style="background:#1c1c22;border-radius:99px;height:12px;overflow:hidden;margin-bottom:10px">
+        <div style="height:100%;width:${pct}%;background:${c.cor};border-radius:99px"></div>
+      </div>
+      <p style="font-family:monospace;font-size:28px;font-weight:800;color:${c.cor};margin-bottom:4px">${fmtBRL(atual)}</p>
+      <p style="color:#7c7c96;font-size:12px">de ${fmtBRL(meta)} · ${pct}%</p>
+    </div>
+
+    <p style="color:#7c7c96;font-size:13px;text-align:center;margin-bottom:20px">${c.msg}</p>
+
+    <a href="${process.env.FRONTEND_URL}/dashboard" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">
+      Ver dashboard →
+    </a>
+  `)
+
+  for (const email of emails) {
+    await resend.emails.send({ from: FROM, to: email, subject: `${c.emoji} ${c.titulo} — ${tenantNome}`, html }).catch(console.error)
+  }
+}
+
+module.exports = { enviarNotificacaoRotaCriada, enviarNotificacaoRotaConcluida, enviarResumoSemanal, enviarBoasVindas, enviarRotasAtrasadas, enviarRelatorioMensal, enviarAlertaMeta }

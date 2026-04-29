@@ -155,3 +155,35 @@ export function buildQS(f) {
   Object.entries(f).forEach(([k, v]) => { if (v) p.set(k, v) })
   return p.toString()
 }
+
+// ─── ABASTECIMENTOS ──────────────────────────────────────────────────────────
+export const fetchAbastecimentos      = (qs='')  => req(`/api/abastecimentos?${qs}`)
+export const fetchAbastecimentosStats = (qs='')  => req(`/api/abastecimentos/stats?${qs}`)
+export const criarAbastecimento       = d        => req('/api/abastecimentos',       { method: 'POST',   body: JSON.stringify(d) })
+export const editarAbastecimento      = (id, d)  => req(`/api/abastecimentos/${id}`, { method: 'PUT',    body: JSON.stringify(d) })
+export const deletarAbastecimento     = id       => req(`/api/abastecimentos/${id}`, { method: 'DELETE' })
+
+// ─── COMPARATIVO INTELIGENTE ─────────────────────────────────────────────────
+export const fetchComparativoInteligente = (qs='') => req(`/api/rotas/comparativo-inteligente?${qs}`)
+// BONIFICAÇÕES
+export const fetchBonificacoes      = (qs='') => req(`/api/bonificacoes?${qs}`)
+export const fetchBonificacoesStats = ()      => req('/api/bonificacoes/stats')
+export const criarBonificacao       = d       => req('/api/bonificacoes', { method:'POST', body:JSON.stringify(d) })
+export const editarBonificacao      = (id,d)  => req(`/api/bonificacoes/${id}`, { method:'PUT', body:JSON.stringify(d) })
+export const deletarBonificacao     = id      => req(`/api/bonificacoes/${id}`, { method:'DELETE' })
+
+// STREAK + COMPARATIVO
+export const fetchStreak      = ()  => req('/api/streak')
+export const fetchComparativoSemanal = () => req('/api/streak/comparativo')
+
+// ONBOARDING
+export const fetchOnboarding  = ()  => req('/api/onboarding')
+export const salvarOnboarding = d   => req('/api/onboarding', { method:'PUT', body:JSON.stringify(d) })
+
+// TIPOS DE BONIFICAÇÃO
+export const TIPOS_BONIF = [
+  { v:'desafio', l:'🏆 Desafio', cor:'#f59e0b' },
+  { v:'bonus',   l:'🎁 Bônus',   cor:'#10b981' },
+  { v:'extra',   l:'⭐ Extra',   cor:'#3b82f6' },
+  { v:'outros',  l:'💬 Outros',  cor:'#7c7c96' },
+]

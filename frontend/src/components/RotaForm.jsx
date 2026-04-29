@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS, calcLucroPorHora } from '../lib/api'
+import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 const STATUS = [
@@ -13,7 +13,7 @@ const EMPTY = {
   data_rota: new Date().toISOString().slice(0, 10), status: 'planejada',
   plataforma: 'mercado_livre', veiculo_id: '', preco_combustivel: '4.69',
   kms: '', pacotes_saida: '', pacotes_entregues: '', pacotes_devolvidos: '',
-  paradas: '', valor_total: '', observacoes: '',
+  paradas: '', valor_total: '', bonificacao: '', observacoes: '',
 }
 
 function normDate(val) {
@@ -23,11 +23,20 @@ function normDate(val) {
   return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
+function MapsPontoColeta({ value, onChange }) {
+  return (
+    <div className="field">
+      <label className="field-label">Ponto de coleta</label>
+      <input className="input" list="pontos-dl" value={value}
+        onChange={e=>onChange(e.target.value)} placeholder="Ex: CD Guarulhos" required/>
+      <datalist id="pontos-dl">{PONTOS.map(p=><option key={p} value={p}/>)}</datalist>
+    </div>
+  )
+}
+
 export default function RotaForm({ initial, onSave, onClose, loading }) {
   const { tenant } = useAuth()
-  const isPro  = tenant?.plano === 'pro'
-  const isSolo = tenant?.plano === 'solo'
-  const isPaid = isPro || isSolo
+  const isPro = tenant?.plano === 'pro'
   const [f, setF]           = useState(EMPTY)
   const [membros, setMembros] = useState([])
   const [veiculos, setVeiculos] = useState([])
@@ -52,13 +61,14 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
   const preco   = parseFloat(f.preco_combustivel) || 4.69
   const kms     = parseFloat(f.kms) || 0
   const vt      = parseFloat(f.valor_total) || 0
+  const bonus   = parseFloat(f.bonificacao) || 0
   const comb    = kms > 0 ? calcCombustivel(kms, consumo, preco) : 0
-  const liq     = vt - comb
+  const liq     = vt + bonus - comb
 
   const submit = e => {
     e.preventDefault()
     if (isPro && f.piloto === f.copiloto) { alert('Piloto e copiloto não podem ser iguais!'); return }
-    onSave({ ...f, veiculo_id: f.veiculo_id || null, copiloto: isPro ? f.copiloto : '' })
+    onSave({ ...f, veiculo_id: f.veiculo_id || null })
   }
 
   const nomes = membros.map(m => m.nome)
@@ -75,43 +85,25 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
 
             {/* EQUIPE */}
             <div className="modal-sect">
-              <p className="modal-sect-title">{isSolo ? 'Motorista' : 'Equipe'}</p>
-              {isSolo ? (
+              <p className="modal-sect-title">Equipe</p>
+              <div className={isPro ? "grid2" : ""}>
                 <div className="field">
-                  <label className="field-label">Motorista</label>
-                  <select className="select" value={f.piloto} onChange={e => { s('piloto', e.target.value); s('copiloto', e.target.value) }} required>
+                  <label className="field-label">Piloto</label>
+                  <select className="select" value={f.piloto} onChange={e => s('piloto', e.target.value)} required>
                     <option value="">Selecione...</option>
                     {nomes.map(n => <option key={n}>{n}</option>)}
                   </select>
                 </div>
-              ) : (
-                <div className="grid2">
+                {isPro && (
                   <div className="field">
-                    <label className="field-label">Piloto</label>
-                    <select className="select" value={f.piloto} onChange={e => s('piloto', e.target.value)} required>
+                    <label className="field-label">Copiloto</label>
+                    <select className="select" value={f.copiloto} onChange={e => s('copiloto', e.target.value)} required>
                       <option value="">Selecione...</option>
                       {nomes.map(n => <option key={n}>{n}</option>)}
                     </select>
                   </div>
-                  {isPro ? (
-                    <div className="field">
-                      <label className="field-label">Copiloto</label>
-                      <select className="select" value={f.copiloto} onChange={e => s('copiloto', e.target.value)}>
-                        <option value="">Nenhum</option>
-                        {nomes.map(n => <option key={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="field">
-                      <label className="field-label">Copiloto</label>
-                      <div style={{ padding:'10px 13px', background:'var(--s3)', border:'1px solid var(--b1)', borderRadius:'var(--rsm)', fontSize:13, color:'var(--t3)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-                        <span>Apenas no plano Pro</span>
-                        <a href="/precos" style={{ fontSize:11, color:'var(--or2)', textDecoration:'none', fontWeight:600 }}>⭐ Upgrade</a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* ROTA */}
@@ -124,28 +116,18 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
                     {PLATAFORMAS.map(p => <option key={p.v} value={p.v}>{p.l}</option>)}
                   </select>
                 </div>
-                {isPaid ? (
-                  <div className="field">
-                    <label className="field-label">Veículo</label>
-                    <select className="select" value={f.veiculo_id} onChange={e => s('veiculo_id', e.target.value)}>
-                      <option value="">Padrão (6,5 km/L)</option>
-                      {veiculos.map(v => <option key={v.id} value={v.id}>{v.nome} — {v.consumo_kml} km/L</option>)}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="field">
-                    <label className="field-label">Veículo</label>
-                    <div style={{ padding:'10px 13px', background:'var(--s3)', borderRadius:'var(--rsm)', fontSize:13, color:'var(--t3)' }}>
-                      🔒 Padrão (6,5 km/L) · <span style={{ color:'var(--or2)' }}>Solo/Pro para veículos próprios</span>
-                    </div>
-                  </div>
-                )}
+                <div className="field">
+                  <label className="field-label">Veículo</label>
+                  <select className="select" value={f.veiculo_id} onChange={e => s('veiculo_id', e.target.value)}>
+                    <option value="">Padrão (6,5 km/L)</option>
+                    {veiculos.map(v => <option key={v.id} value={v.id}>{v.nome} — {v.consumo_kml} km/L</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="field" style={{ marginBottom: 10 }}>
-                <label className="field-label">Ponto de coleta</label>
-                <input className="input" list="pontos-dl" value={f.ponto_coleta} onChange={e => s('ponto_coleta', e.target.value)} placeholder="Ex: CD Guarulhos" required/>
-                <datalist id="pontos-dl">{PONTOS.map(p => <option key={p} value={p}/>)}</datalist>
-              </div>
+              <MapsPontoColeta
+                value={f.ponto_coleta}
+                onChange={v => s('ponto_coleta', v)}
+              />
               <div className="grid2" style={{ marginBottom: 10 }}>
                 <div className="field">
                   <label className="field-label">Status</label>
@@ -212,27 +194,27 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
                   <input className="input" type="number" step="0.01" min="0" value={f.preco_combustivel} onChange={e => s('preco_combustivel', e.target.value)} placeholder="4.69"/>
                 </div>
               </div>
-              {isPaid && (() => {
-                const lph = calcLucroPorHora(liq, f.hora_inicio, f.hora_fim)
-                if (!lph) return null
-                return (
-                  <div style={{ background:'var(--s3)', borderRadius:8, padding:'8px 12px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <p style={{ fontSize:11, color:'var(--t3)' }}>⏱️ Lucro por hora trabalhada</p>
-                    <p style={{ fontFamily:'var(--fm)', fontSize:13, color: lph >= 30 ? 'var(--gr2)' : 'var(--ye)' }}>{fmtBRL(lph)}/h</p>
-                  </div>
-                )
-              })()}
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label className="field-label">🎁 Bonificação (R$) <span style={{ fontWeight: 400, color: 'var(--t3)', fontSize: 11 }}>— bônus ML, Shopee ou Amazon (opcional)</span></label>
+                <input className="input" type="number" step="0.01" min="0" value={f.bonificacao} onChange={e => s('bonificacao', e.target.value)} placeholder="0,00"/>
+              </div>
               {kms > 0 && vt > 0 && (
-                <div className="grid2">
+                <div style={{ display: 'grid', gridTemplateColumns: bonus > 0 ? 'repeat(3,1fr)' : '1fr 1fr', gap: 10 }}>
                   <div style={{ background: 'var(--s3)', borderRadius: 8, padding: '10px 12px' }}>
                     <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 4 }}>
                       Combustível ({consumo}km/L × R${preco.toFixed(2)})
                     </p>
                     <p style={{ fontFamily: 'var(--fm)', fontSize: 14, color: 'var(--ye)' }}>{fmtBRL(comb)}</p>
                   </div>
-                  <div style={{ background: 'var(--s3)', borderRadius: 8, padding: '10px 12px' }}>
+                  {bonus > 0 && (
+                    <div style={{ background: 'var(--s3)', borderRadius: 8, padding: '10px 12px' }}>
+                      <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 4 }}>Bonificação</p>
+                      <p style={{ fontFamily: 'var(--fm)', fontSize: 14, color: 'var(--or)' }}>+ {fmtBRL(bonus)}</p>
+                    </div>
+                  )}
+                  <div style={{ background: liq >= 0 ? 'var(--gd)' : 'var(--rd)', borderRadius: 8, padding: '10px 12px', border: `1px solid ${liq >= 0 ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)'}` }}>
                     <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 4 }}>Lucro líquido est.</p>
-                    <p style={{ fontFamily: 'var(--fm)', fontSize: 14, color: liq >= 0 ? 'var(--gr2)' : 'var(--re)' }}>{fmtBRL(liq)}</p>
+                    <p style={{ fontFamily: 'var(--fm)', fontSize: 14, color: liq >= 0 ? 'var(--gr2)' : 'var(--re)', fontWeight: 700 }}>{fmtBRL(liq)}</p>
                   </div>
                 </div>
               )}

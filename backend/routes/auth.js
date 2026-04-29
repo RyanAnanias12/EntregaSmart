@@ -14,7 +14,7 @@ function makeToken(user, tenant) {
 }
 
 router.post('/register', async (req, res) => {
-  const { nomeEquipe, nomeAdmin, email, senha } = req.body
+  const { nomeEquipe, nomeAdmin, email, senha, telefone } = req.body
   if (!nomeEquipe || !nomeAdmin || !email || !senha)
     return res.status(400).json({ error: 'Preencha todos os campos' })
   if (senha.length < 6)
@@ -32,8 +32,8 @@ router.post('/register', async (req, res) => {
     )
     const hash = await bcrypt.hash(senha, 10)
     const { rows: [user] } = await client.query(
-      `INSERT INTO usuarios (tenant_id, nome, email, senha_hash, papel) VALUES ($1,$2,$3,$4,'admin') RETURNING *`,
-      [tenant.id, nomeAdmin, email.toLowerCase(), hash]
+      `INSERT INTO usuarios (tenant_id, nome, email, senha_hash, papel, telefone) VALUES ($1,$2,$3,$4,'admin',$5) RETURNING *`,
+      [tenant.id, nomeAdmin, email.toLowerCase(), hash, telefone || null]
     )
     await client.query('COMMIT')
 

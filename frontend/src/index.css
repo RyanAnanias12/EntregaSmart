@@ -225,11 +225,57 @@ footer{border-top:1px solid var(--b1);padding:20px;text-align:center;font-size:1
 }
 @media(max-width:480px){
   .container{padding:0 14px}
-  .grid2,.grid3{grid-template-columns:1fr}
+  .grid2,.grid3,.grid4{grid-template-columns:1fr 1fr}
   .feature-grid{grid-template-columns:1fr}
   .hero-btns{flex-direction:column}
   .hero-btns .btn{width:100%;justify-content:center}
   .modal-footer{flex-direction:column-reverse}
   .modal-footer .btn{width:100%}
-  .metric-value{font-size:20px}
+  .metric-value{font-size:18px}
+  .metric{padding:10px 12px}
 }
+
+/* ===== BLUR PREMIUM ===== */
+.premium-blur {
+  position: relative;
+  pointer-events: none;
+  user-select: none;
+}
+.premium-blur > * {
+  filter: blur(5px);
+  opacity: 0.4;
+}
+.premium-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: all;
+  border-radius: var(--r);
+  gap: 10px;
+  background: radial-gradient(ellipse at center, rgba(9,9,11,.7) 0%, rgba(9,9,11,.3) 100%);
+}
+.premium-overlay p {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t);
+  text-align: center;
+}
+.premium-overlay span {
+  font-size: 12px;
+  color: var(--t3);
+  text-align: center;
+}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.pg-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.pg-title{font-family:var(--ff);font-size:22px;font-weight:800;letter-spacing:-.02em}
+.pg-sub{color:var(--t2);font-size:13px;margin-top:4px}
+.empty{padding:48px 20px;text-align:center}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-title{font-family:var(--ff);font-size:16px;font-weight:700;margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--t2)}
+

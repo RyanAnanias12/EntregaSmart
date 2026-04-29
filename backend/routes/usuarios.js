@@ -2,7 +2,6 @@ const router   = require('express').Router()
 const bcrypt   = require('bcryptjs')
 const { pool } = require('../db')
 const { auth, adminOnly } = require('../middleware')
-const { enviarBoasVindas } = require('../email')
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -37,10 +36,6 @@ router.post('/', auth, adminOnly, async (req, res) => {
       `INSERT INTO usuarios (tenant_id, nome, email, senha_hash, papel) VALUES ($1,$2,$3,$4,$5) RETURNING id, nome, email, papel, ativo`,
       [req.user.tenant_id, nome, email.toLowerCase(), hash, papel]
     )
-    // Envia boas-vindas ao novo membro
-    const { rows: [tenant] } = await pool.query('SELECT nome FROM tenants WHERE id=$1', [req.user.tenant_id])
-    enviarBoasVindas(nome, email, tenant?.nome || '').catch(() => {})
-
     res.status(201).json(u)
   } catch (e) {
     if (e.code === '23505') return res.status(400).json({ error: 'Email já cadastrado' })

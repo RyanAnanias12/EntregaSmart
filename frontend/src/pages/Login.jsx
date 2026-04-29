@@ -26,7 +26,9 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-bg"/>
       <div className="auth-card">
-        <div className="auth-logo"><div className="icon">🚚</div>Smart<span>Entregas</span></div>
+        <div className="auth-logo">
+          <img src="/logo.png" alt="Smart Entregas" style={{ height: 48, width: 'auto', marginBottom: 8 }}/>
+        </div>
         <h1 className="auth-title">Bem-vindo de volta</h1>
         <p className="auth-sub">Entre na sua conta para continuar</p>
         {err && (
