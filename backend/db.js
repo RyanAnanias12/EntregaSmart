@@ -86,6 +86,7 @@ async function initDB() {
     `ALTER TABLE rotas ADD COLUMN IF NOT EXISTS veiculo_id INTEGER`,
     `ALTER TABLE rotas ADD COLUMN IF NOT EXISTS preco_combustivel NUMERIC DEFAULT 4.69`,
     `ALTER TABLE rotas ADD COLUMN IF NOT EXISTS notificacao_enviada BOOLEAN DEFAULT false`,
+    `ALTER TABLE rotas ADD COLUMN IF NOT EXISTS bonificacao NUMERIC DEFAULT 0`,
     `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS stripe_customer TEXT`,
     `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS meta_mensal NUMERIC DEFAULT 0`,
     `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS meta_diaria NUMERIC DEFAULT 0`,
