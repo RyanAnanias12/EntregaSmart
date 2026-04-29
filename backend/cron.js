@@ -47,7 +47,7 @@ async function rodarResumoSemanal() {
       })
       const rateio = Object.entries(acc).sort((a,b) => b[1]-a[1]).map(([nome,valor]) => ({ nome, valor: parseFloat(valor.toFixed(2)) }))
       const { rows: usuarios } = await pool.query('SELECT email FROM usuarios WHERE tenant_id=$1 AND ativo=true', [tenant.id])
-      await enviarResumoSemanal(stats, rateio, usuarios.map(u=>u.email), tenant.nome, periodo)
+      await enviarResumoSemanal(stats, rateio, usuarios.map(u=>u.email), tenant.nome, periodo, tenant.plano)
       console.log('[CRON] Resumo enviado: ' + tenant.nome)
     }
   } catch (e) { console.error('[CRON] Erro resumo semanal:', e.message) }
@@ -214,7 +214,7 @@ async function rodarResumoSemanal() {
       })
       const rateio = Object.entries(acc).sort((a,b) => b[1]-a[1]).map(([nome,valor]) => ({ nome, valor: parseFloat(valor.toFixed(2)) }))
       const { rows: usuarios } = await pool.query('SELECT email FROM usuarios WHERE tenant_id=$1 AND ativo=true', [tenant.id])
-      await enviarResumoSemanal(stats, rateio, usuarios.map(u=>u.email), tenant.nome, periodo)
+      await enviarResumoSemanal(stats, rateio, usuarios.map(u=>u.email), tenant.nome, periodo, tenant.plano)
       console.log('[CRON] Resumo enviado: ' + tenant.nome)
     }
   } catch (e) { console.error('[CRON] Erro resumo semanal:', e.message) }

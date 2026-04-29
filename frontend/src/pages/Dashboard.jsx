@@ -160,7 +160,9 @@ export default function Dashboard() {
   // Lucro real com bonificações
   const totalDespesas = despesas.reduce((a,d)=>a+parseFloat(d.valor),0)
   const totalBonif    = parseFloat(statsBonif?.total_valor||0)
-  const lucroReal     = parseFloat(g?.total_liquido||0) - totalDespesas + totalBonif
+  // total_liquido já inclui bonificacao das rotas — subtrair despesas e somar bônus externos
+  const lucroRotas = parseFloat(g?.total_liquido||0) - parseFloat(g?.total_bonificacao||0)
+  const lucroReal  = lucroRotas + totalBonif - totalDespesas
 
   return (
     <div style={{ padding:'28px 0 60px' }}>
@@ -248,7 +250,11 @@ export default function Dashboard() {
         {/* MÉTRICAS */}
         <div className="grid4" style={{ marginBottom:14 }}>
           <div className="metric"><p className="metric-label">Total bruto</p><p className="metric-value orange">{fmtBRL(g.total_bruto)}</p><p className="metric-sub">{g.total_rotas} rota{g.total_rotas!=1?'s':''}</p></div>
-          <div className="metric"><p className="metric-label">Lucro líquido</p><p className="metric-value green">{fmtBRL(g.total_liquido)}</p><p className="metric-sub">após combustível</p></div>
+          <div className="metric">
+            <p className="metric-label">Lucro líquido</p>
+            <p className="metric-value green">{fmtBRL(parseFloat(g.total_liquido||0) - parseFloat(g.total_bonificacao||0))}</p>
+            <p className="metric-sub">após combustível</p>
+          </div>
           <div className="metric"><p className="metric-label">Combustível</p><p className="metric-value yellow">{fmtBRL(g.total_combustivel)}</p><p className="metric-sub">{Number(g.total_kms).toFixed(0)} km</p></div>
           <div className="metric">
             <p className="metric-label">Taxa entrega</p>
@@ -272,7 +278,7 @@ export default function Dashboard() {
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10 }}>
                 <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 14px' }}>
                   <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>Lucro das rotas</p>
-                  <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--gr2)' }}>{fmtBRL(g?.total_liquido)}</p>
+                  <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--gr2)' }}>{fmtBRL(parseFloat(g?.total_liquido||0) - parseFloat(g?.total_bonificacao||0))}</p>
                 </div>
                 {totalBonif > 0 && (
                   <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 14px' }}>
@@ -312,7 +318,7 @@ export default function Dashboard() {
                   <button className="btn btn-primary" onClick={handleSalvarMeta}>Salvar</button>
                 </div>
               ) : (() => {
-                const atual = parseFloat(g?.total_bruto||0) + totalBonif
+                const atual = lucroRotas + totalBonif
                 const pct   = meta>0?Math.min(Math.round((atual/meta)*100),100):0
                 const cor   = pct>=100?'var(--gr2)':pct>=70?'var(--or)':'var(--ye)'
                 return (
@@ -424,7 +430,7 @@ export default function Dashboard() {
               {isSolo ? (
                 <div>
                   {[
-                    { label:'Lucro líquido',  val:fmtBRL(g?.total_liquido), color:'var(--gr2)' },
+                    { label:'Lucro líquido',  val:fmtBRL(lucroRotas), color:'var(--gr2)' },
                     { label:'Faturamento bruto', val:fmtBRL(g?.total_bruto), color:'var(--or)' },
                     { label:'KMs rodados',    val:`${Number(g?.total_kms||0).toFixed(0)} km`, color:'var(--t)' },
                     { label:'Pacotes',        val:g?.total_entregues||0, color:'var(--t)' },

@@ -7,7 +7,7 @@ export const PLATAFORMAS = [
 
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '')
 
-function token() { return localStorage.getItem('token') || '' }
+function token() { return localStorage.getItem('token') || sessionStorage.getItem('token') || '' }
 function headers(extra = {}) {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...extra }
 }

@@ -131,14 +131,15 @@ async function enviarNotificacaoRotaConcluida(rota, rateio, emails, tenantNome, 
 }
 
 // Resumo semanal
-async function enviarResumoSemanal(stats, rateio, emails, tenantNome, periodo) {
+async function enviarResumoSemanal(stats, rateio, emails, tenantNome, periodo, plano = 'pro') {
   if (!emails?.length) return
-  const rateioHtml = rateio.map(p => `
+  const isPro = plano === 'pro'
+  const rateioHtml = isPro ? rateio.map(p => `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
       <td style="padding:10px 16px;color:#f4f4f6;font-size:13px;font-weight:500">${p.nome}</td>
       <td style="padding:10px 16px;color:#34d399;font-size:15px;font-weight:700;text-align:right;font-family:monospace">${fmtBRL(p.valor)}</td>
     </tr>
-  `).join('')
+  `).join('') : ''
 
   const html = baseTemplate(`
     <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:6px">📊 Resumo da semana</h2>
@@ -156,12 +157,16 @@ async function enviarResumoSemanal(stats, rateio, emails, tenantNome, periodo) {
         </div>
       `).join('')}
     </div>
+    ${isPro && rateioHtml ? `
     <div style="background:#141418;border:1px solid rgba(255,255,255,0.06);border-radius:12px;overflow:hidden">
       <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06)">
         <p style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4a4a62;margin:0">Rateio acumulado da semana</p>
       </div>
       <table style="width:100%;border-collapse:collapse">${rateioHtml}</table>
-    </div>
+    </div>` : `
+    <a href="${process.env.FRONTEND_URL}/dashboard" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;margin-top:4px">
+      Ver dashboard completo →
+    </a>`}
   `)
 
   for (const email of emails) {
