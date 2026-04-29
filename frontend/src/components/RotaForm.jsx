@@ -64,7 +64,20 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
 
   useEffect(() => {
     if (initial) {
-      setF({ ...EMPTY, ...initial, data_rota: normDate(initial.data_rota) || EMPTY.data_rota, veiculo_id: initial.veiculo_id || '' })
+      setF({
+        ...EMPTY,
+        ...initial,
+        data_rota:          normDate(initial.data_rota) || EMPTY.data_rota,
+        veiculo_id:         initial.veiculo_id || '',
+        kms:                parseFloat(initial.kms)               || '',
+        pacotes_saida:      parseInt(initial.pacotes_saida)        || '',
+        pacotes_entregues:  parseInt(initial.pacotes_entregues)    || '',
+        pacotes_devolvidos: parseInt(initial.pacotes_devolvidos)   || '',
+        paradas:            parseInt(initial.paradas)              || '',
+        valor_total:        parseFloat(initial.valor_total)        || '',
+        bonificacao:        parseFloat(initial.bonificacao)        || '',
+        preco_combustivel:  parseFloat(initial.preco_combustivel)  || '4.69',
+      })
     }
   }, [initial])
 
@@ -82,7 +95,19 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
   const submit = e => {
     e.preventDefault()
     if (isPro && f.piloto === f.copiloto) { alert('Piloto e copiloto não podem ser iguais!'); return }
-    onSave({ ...f, veiculo_id: f.veiculo_id || null })
+    const payload = {
+      ...f,
+      veiculo_id:        f.veiculo_id || null,
+      kms:               parseFloat(f.kms)               || 0,
+      pacotes_saida:     parseInt(f.pacotes_saida)        || 0,
+      pacotes_entregues: parseInt(f.pacotes_entregues)    || 0,
+      pacotes_devolvidos:parseInt(f.pacotes_devolvidos)   || 0,
+      paradas:           parseInt(f.paradas)              || 0,
+      valor_total:       parseFloat(String(f.valor_total).replace(',','.')) || 0,
+      bonificacao:       parseFloat(String(f.bonificacao).replace(',','.')) || 0,
+      preco_combustivel: parseFloat(String(f.preco_combustivel).replace(',','.')) || 4.69,
+    }
+    onSave(payload)
   }
 
   const nomes = membros.map(m => m.nome)

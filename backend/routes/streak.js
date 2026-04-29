@@ -14,18 +14,18 @@ router.get('/', auth, async (req, res) => {
 
     // Mapa de calor — últimos 84 dias (12 semanas)
     const { rows: calor } = await pool.query(`
-      SELECT data_rota::text as data,
+      SELECT (data_rota AT TIME ZONE 'America/Sao_Paulo')::date::text as data,
              COUNT(*) as rotas,
              COALESCE(SUM(lucro_liquido),0) as lucro
       FROM rotas
       WHERE tenant_id=$1
         AND status='concluida'
         AND data_rota >= CURRENT_DATE - INTERVAL '84 days'
-      GROUP BY data_rota
-      ORDER BY data_rota ASC
+      GROUP BY (data_rota AT TIME ZONE 'America/Sao_Paulo')::date
+      ORDER BY 1 ASC
     `, [tid])
 
-    // Recalcular streak real
+    // Recalcular streak real — aceita hoje ou ontem como ponto de partida
     const { rows: dias } = await pool.query(`
       SELECT DISTINCT data_rota::text as data
       FROM rotas
@@ -35,13 +35,29 @@ router.get('/', auth, async (req, res) => {
     `, [tid])
 
     let streak = 0
-    const hoje = new Date()
-    for (let i = 0; i < dias.length; i++) {
-      const esperado = new Date(hoje)
-      esperado.setDate(hoje.getDate() - i)
-      const esperadoStr = esperado.toISOString().slice(0,10)
-      if (dias[i].data === esperadoStr) { streak++ }
-      else break
+    if (dias.length > 0) {
+      // Pega data do banco em timezone local do servidor (UTC-3)
+      const agoraBR = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+      const hojeBR  = agoraBR.toISOString().slice(0,10)
+      const ontemBR = new Date(agoraBR.setDate(agoraBR.getDate()-1)).toISOString().slice(0,10)
+
+      // Permite começar do hoje ou do ontem (motorista que ainda não rodou hoje)
+      const primeiroData = dias[0].data
+      let offset = 0
+      if (primeiroData === hojeBR)  offset = 0
+      else if (primeiroData === ontemBR) offset = 1
+      else { streak = 0; offset = null }
+
+      if (offset !== null) {
+        const base = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+        for (let i = 0; i < dias.length; i++) {
+          const esperado = new Date(base)
+          esperado.setDate(base.getDate() - (i + offset))
+          const esperadoStr = esperado.toISOString().slice(0,10)
+          if (dias[i].data === esperadoStr) streak++
+          else break
+        }
+      }
     }
 
     // Atualiza streak no banco

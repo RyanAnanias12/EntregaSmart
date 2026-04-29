@@ -125,7 +125,7 @@ export default function Bonificacoes() {
                       const tipo = TIPOS_BONIF.find(t=>t.v===b.tipo)
                       return (
                         <tr key={b.id} onClick={()=>abrirEditar(b)}>
-                          <td className="hl">{new Date(b.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</td>
+                          <td className="hl">{new Date((b.data||'').slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</td>
                           <td><span className="badge badge-orange" style={{ fontSize:11 }}>{b.plataforma==='mercado_livre'?'ML':b.plataforma==='shopee'?'Shopee':b.plataforma==='amazon'?'Amazon':'Outro'}</span></td>
                           <td><span style={{ background:'rgba(255,255,255,.05)', color:tipo?.cor||'var(--t3)', border:`1px solid rgba(255,255,255,.08)`, borderRadius:99, padding:'2px 9px', fontSize:11, fontWeight:600 }}>{tipo?.l||b.tipo}</span></td>
                           <td className="hl">{b.descricao}</td>

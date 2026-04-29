@@ -58,11 +58,11 @@ function MapaCalor({ dados }) {
 
 // Streak badge
 function StreakBadge({ streak }) {
-  if (!streak || streak < 2) return null
+  if (!streak || streak < 1) return null
   const emoji = streak >= 30 ? '🔥🔥🔥' : streak >= 14 ? '🔥🔥' : '🔥'
   return (
     <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.25)', borderRadius:99, padding:'4px 12px', fontSize:12, color:'var(--or2)', fontWeight:600 }}>
-      {emoji} {streak} dia{streak!==1?'s':''} seguidos!
+      {emoji} {streak} dia{streak!==1?'s':''} seguido{streak!==1?'s':''}!
     </div>
   )
 }
@@ -347,7 +347,7 @@ export default function Dashboard() {
         )}
 
         {/* MAPA DE CALOR */}
-        {isPaid && streakData?.mapa && (
+        {isPaid && streakData?.mapa && streakData.mapa.length > 0 && (
           <div className="card" style={{ marginBottom:14 }}>
             <div className="card-header">
               <span className="card-title">Atividade — últimos 84 dias</span>
