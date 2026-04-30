@@ -59,31 +59,34 @@ function MapaCalor({ dados }) {
     semanas.push(semana)
   }
 
-  const SZ = 12 // tamanho fixo em px por célula
-  const GAP = 2
+  const SZ = 11
+  const GAP = 3
+  const totalW = 12 * SZ + 11 * GAP
 
   return (
-    <div style={{ overflowX:'hidden' }}>
-      {/* 7 linhas × 12 colunas — tamanho fixo */}
-      <div style={{ display:'grid', gridTemplateColumns:`repeat(12, ${SZ}px)`, gridTemplateRows:`repeat(7, ${SZ}px)`, gap:GAP, width:'fit-content' }}>
+    <div style={{ width: totalW, maxWidth: totalW }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(12, ${SZ}px)`,
+        gridTemplateRows: `repeat(7, ${SZ}px)`,
+        gap: GAP,
+      }}>
         {Array.from({length:7}, (_,d) =>
           semanas.map((sem,s) => {
             const c = sem[d]
             return (
               <div key={`${s}-${d}`}
                 title={c.futuro ? '' : `${c.key}: ${fmtBRL(c.lucro)}`}
-                style={{ width:SZ, height:SZ, background:c.bg, borderRadius:2, opacity:c.futuro?.25:1, cursor:'default' }}
-                onMouseEnter={e=>{ if(!c.futuro) e.currentTarget.style.opacity='0.6' }}
-                onMouseLeave={e=>e.currentTarget.style.opacity=c.futuro?'0.25':'1'}
+                style={{ width:SZ, height:SZ, background:c.bg, borderRadius:2, opacity:c.futuro?0.2:1 }}
               />
             )
           })
         )}
       </div>
-      <div style={{ display:'flex', gap:4, alignItems:'center', marginTop:7, fontSize:10, color:'var(--t3)' }}>
+      <div style={{ display:'flex', gap:4, alignItems:'center', marginTop:6, fontSize:10, color:'var(--t3)' }}>
         <span>Menos</span>
         {['var(--s2)','rgba(249,115,22,.3)','rgba(249,115,22,.55)','rgba(249,115,22,.8)','var(--or)'].map((bg,i)=>(
-          <div key={i} style={{ width:9, height:9, background:bg, borderRadius:2 }}/>
+          <div key={i} style={{ width:9, height:9, background:bg, borderRadius:2, flexShrink:0 }}/>
         ))}
         <span>Mais</span>
       </div>
@@ -405,7 +408,7 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <div className="card-body">
+            <div className="card-body" style={{ display:'flex', justifyContent:'flex-start' }}>
               <MapaCalor dados={streakData.mapa}/>
             </div>
           </Card>
