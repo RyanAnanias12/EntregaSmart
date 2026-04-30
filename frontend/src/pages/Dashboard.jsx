@@ -34,21 +34,18 @@ function saudacao(nome) {
 }
 
 function MapaCalor({ dados }) {
-  // Monta grid igual GitHub: 7 linhas (Dom-Sab) × 12 semanas
   const hoje    = new Date()
-  const diasSem = hoje.getDay() // 0=Dom
-  // Começa no domingo da semana mais antiga (12 semanas atrás)
+  const diasSem = hoje.getDay()
   const inicio  = new Date(hoje)
   inicio.setDate(hoje.getDate() - diasSem - 11*7)
 
-  // Gera todas as células: 12 semanas × 7 dias = 84 células
   const semanas = []
   for (let s = 0; s < 12; s++) {
     const semana = []
     for (let d = 0; d < 7; d++) {
       const dt  = new Date(inicio)
       dt.setDate(inicio.getDate() + s*7 + d)
-      const key = dt.toISOString().slice(0,10)
+      const key   = dt.toISOString().slice(0,10)
       const info  = dados?.find(r => r.data === key)
       const lucro = parseFloat(info?.lucro || 0)
       const futuro = dt > hoje
@@ -62,24 +59,28 @@ function MapaCalor({ dados }) {
     semanas.push(semana)
   }
 
+  const SZ = 12 // tamanho fixo em px por célula
+  const GAP = 2
+
   return (
     <div style={{ overflowX:'hidden' }}>
-      {/* Grid: 7 linhas × 12 colunas */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gridTemplateRows:'repeat(7,1fr)', gap:2 }}>
+      {/* 7 linhas × 12 colunas — tamanho fixo */}
+      <div style={{ display:'grid', gridTemplateColumns:`repeat(12, ${SZ}px)`, gridTemplateRows:`repeat(7, ${SZ}px)`, gap:GAP, width:'fit-content' }}>
         {Array.from({length:7}, (_,d) =>
           semanas.map((sem,s) => {
             const c = sem[d]
             return (
-              <div key={`${s}-${d}`} title={c.futuro ? '' : `${c.key}: ${fmtBRL(c.lucro)}`}
-                style={{ width:'100%', aspectRatio:'1', background:c.bg, borderRadius:2, cursor:c.futuro?'default':'default', opacity:c.futuro?.3:1 }}
-                onMouseEnter={e=>{if(!c.futuro)e.currentTarget.style.opacity='0.7'}}
-                onMouseLeave={e=>e.currentTarget.style.opacity=c.futuro?'0.3':'1'}
+              <div key={`${s}-${d}`}
+                title={c.futuro ? '' : `${c.key}: ${fmtBRL(c.lucro)}`}
+                style={{ width:SZ, height:SZ, background:c.bg, borderRadius:2, opacity:c.futuro?.25:1, cursor:'default' }}
+                onMouseEnter={e=>{ if(!c.futuro) e.currentTarget.style.opacity='0.6' }}
+                onMouseLeave={e=>e.currentTarget.style.opacity=c.futuro?'0.25':'1'}
               />
             )
           })
         )}
       </div>
-      <div style={{ display:'flex', gap:5, alignItems:'center', marginTop:7, fontSize:10, color:'var(--t3)' }}>
+      <div style={{ display:'flex', gap:4, alignItems:'center', marginTop:7, fontSize:10, color:'var(--t3)' }}>
         <span>Menos</span>
         {['var(--s2)','rgba(249,115,22,.3)','rgba(249,115,22,.55)','rgba(249,115,22,.8)','var(--or)'].map((bg,i)=>(
           <div key={i} style={{ width:9, height:9, background:bg, borderRadius:2 }}/>
