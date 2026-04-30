@@ -172,7 +172,7 @@ export default function Combustivel() {
                   <div key={h.id} style={{ padding:'12px 20px', borderBottom:'1px solid var(--b1)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <div>
                       <p style={{ fontSize:13, color:'var(--t)', fontWeight:500 }}>
-                        {new Date(h.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}
+                        {new Date((h.data||'').slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}
                       </p>
                       <p style={{ fontSize:11, color:'var(--t3)' }}>{h.combustivel}</p>
                     </div>
