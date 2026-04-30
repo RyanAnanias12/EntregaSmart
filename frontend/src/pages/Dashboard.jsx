@@ -400,26 +400,18 @@ export default function Dashboard() {
         {/* FREE blur */}
         {!isPaid && (
           <div style={{ position:'relative', marginBottom:12 }}>
-            <div style={{ filter:'blur(5px)', pointerEvents:'none', userSelect:'none', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div style={{ filter:'blur(5px)', pointerEvents:'none', userSelect:'none' }}>
               <div className="card" style={{ height:160 }}>
                 <div className="card-header"><span className="card-title">Faturamento mensal</span></div>
                 <div className="card-body" style={{ display:'flex', alignItems:'flex-end', gap:3, paddingTop:8 }}>
                   {[55,75,45,90,65,100,80].map((h,i)=><div key={i} style={{ flex:1, height:`${h}%`, background:'rgba(249,115,22,.4)', borderRadius:'3px 3px 0 0' }}/>)}
                 </div>
               </div>
-              <div className="card" style={{ height:160 }}>
-                <div className="card-header"><span className="card-title">Atividade 12 semanas</span></div>
-                <div className="card-body">
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
-                    {Array(84).fill(0).map((_,i)=><div key={i} style={{ aspectRatio:'1', background:`rgba(249,115,22,${Math.random()*.6+.1})`, borderRadius:3 }}/>)}
-                  </div>
-                </div>
-              </div>
             </div>
             <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(9,9,11,.6)', borderRadius:'var(--r)', backdropFilter:'blur(2px)' }}>
               <div style={{ textAlign:'center', padding:20 }}>
                 <p style={{ fontSize:14, fontWeight:700, color:'var(--t)', marginBottom:5 }}>🔒 Solo e Pro</p>
-                <p style={{ fontSize:12, color:'var(--t2)', marginBottom:14 }}>Mapa de calor, meta mensal, comparativo semanal</p>
+                <p style={{ fontSize:12, color:'var(--t2)', marginBottom:14 }}>Gráficos, meta mensal e comparativo semanal</p>
                 <a href="/precos" className="btn btn-primary btn-sm">Ver planos →</a>
               </div>
             </div>
