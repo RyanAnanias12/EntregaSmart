@@ -397,23 +397,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ══ SEÇÃO 4 — MAPA DE CALOR ══════════════════════════════════ */}
-        {isPaid && streakData?.mapa && streakData.mapa.length > 0 && (
-          <Card>
-            <div className="card-header">
-              <span className="card-title">Atividade — 12 semanas</span>
-              {streak >= 1 && (
-                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 8px', fontSize:10, color:'var(--or2)', fontWeight:600 }}>
-                  {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d seguidos
-                </span>
-              )}
-            </div>
-            <div className="card-body" style={{ display:'flex', justifyContent:'flex-start' }}>
-              <MapaCalor dados={streakData.mapa}/>
-            </div>
-          </Card>
-        )}
-
         {/* FREE blur */}
         {!isPaid && (
           <div style={{ position:'relative', marginBottom:12 }}>

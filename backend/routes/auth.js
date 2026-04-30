@@ -64,7 +64,15 @@ router.post('/login', async (req, res) => {
     if (!user || !user.ativo || !user.tenant_ativo) return res.status(401).json({ error: 'Credenciais inválidas' })
     if (!await bcrypt.compare(senha, user.senha_hash)) return res.status(401).json({ error: 'Credenciais inválidas' })
     const { rows: [tenantFull] } = await pool.query(`SELECT * FROM tenants WHERE id=$1`, [user.tenant_id])
-    const tenant = { id: user.tenant_id, nome: user.tenant_nome, plano: user.plano, trial: tenantFull.trial, plano_expira_em: tenantFull.plano_expira_em }
+
+    // Expirar trial automaticamente se passou da data
+    if (tenantFull.trial && tenantFull.plano_expira_em && new Date(tenantFull.plano_expira_em) < new Date()) {
+      await pool.query(`UPDATE tenants SET plano='free', trial=false WHERE id=$1`, [tenantFull.id])
+      tenantFull.plano = 'free'; tenantFull.trial = false
+      console.log(`[AUTH] Trial expirado automaticamente: ${tenantFull.nome}`)
+    }
+
+    const tenant = { id: user.tenant_id, nome: user.tenant_nome, plano: tenantFull.plano, trial: tenantFull.trial, plano_expira_em: tenantFull.plano_expira_em }
     res.json({ token: makeToken(user, tenant), user: { id: user.id, nome: user.nome, email: user.email, papel: user.papel }, tenant })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })

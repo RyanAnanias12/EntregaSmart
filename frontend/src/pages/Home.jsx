@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchRecentes, fmtBRL, fmtData, calcRateio, statusLabel, plataformaEmoji, criarRota, fetchUsuarios, calcCombustivel } from '../lib/api'
+import { fetchRecentes, fmtBRL, fmtData, calcRateio, statusLabel, plataformaEmoji, criarRota, fetchUsuarios, calcCombustivel, fetchStreak } from '../lib/api'
 
 // ─── REGISTRO RÁPIDO ────────────────────────────────────────────────────────
 function RegistroRapido({ onSalvo }) {
@@ -89,8 +89,12 @@ function HomeLogado({ user, tenant }) {
   const nav = useNavigate()
   const [recentes, setRecentes] = useState([])
   const [loading,  setLoading]  = useState(true)
+  const [streak,   setStreak]   = useState(0)
   function load() { setLoading(true); fetchRecentes().then(setRecentes).catch(() => {}).finally(() => setLoading(false)) }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    fetchStreak().then(d => setStreak(d.streak||0)).catch(() => {})
+  }, [])
   const concluidas = recentes.filter(r => r.status === 'concluida')
 
   return (
@@ -100,7 +104,14 @@ function HomeLogado({ user, tenant }) {
           <div style={{ marginBottom:24, display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
             <div>
               <h1 style={{ fontFamily:'var(--ff)', fontSize:26, fontWeight:800, letterSpacing:'-.02em', marginBottom:4 }}>Olá, {user.nome.split(' ')[0]} 👋</h1>
-              <p style={{ color:'var(--t2)', fontSize:13 }}>{tenant?.nome}</p>
+              <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                <p style={{ color:'var(--t2)', fontSize:13 }}>{tenant?.nome}</p>
+                {streak >= 1 && (
+                  <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 8px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>
+                    {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d seguidos
+                  </span>
+                )}
+              </div>
             </div>
             {!['pro','solo'].includes(tenant?.plano) && (
               <button className="btn btn-ghost btn-sm" style={{ borderColor:'rgba(249,115,22,.3)', color:'var(--or2)' }} onClick={() => nav('/precos')}>
