@@ -166,9 +166,11 @@ export default function Rotas() {
                         <td><span className={`badge status-${r.status}`}>{statusLabel(r.status)}</span></td>
                         <td><span style={{ fontSize: 13 }}>{plataformaEmoji(r.plataforma)} {plataformaLabel(r.plataforma)}</span></td>
                         <td>
-                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                            <span className="badge badge-orange" style={{ fontSize:11, padding:'2px 7px' }}>▶ {r.piloto}</span>
-                            <span className="badge badge-gray"   style={{ fontSize:11, padding:'2px 7px' }}>{r.copiloto}</span>
+                          <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                            <span style={{ fontSize:12, color:'var(--or2)', fontWeight:500 }}>▶ {r.piloto}</span>
+                            {r.copiloto && r.copiloto !== r.piloto && (
+                              <span style={{ fontSize:11, color:'var(--t3)' }}>{r.copiloto}</span>
+                            )}
                           </div>
                         </td>
                         <td>{r.ponto_coleta || '—'}</td>

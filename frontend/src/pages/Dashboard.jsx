@@ -34,35 +34,55 @@ function saudacao(nome) {
 }
 
 function MapaCalor({ dados }) {
-  const hoje = new Date()
-  const cells = []
-  for (let i = 83; i >= 0; i--) {
-    const d = new Date(hoje); d.setDate(hoje.getDate() - i)
-    const key  = d.toISOString().slice(0,10)
-    const info = dados?.find(r => r.data === key)
-    const lucro = parseFloat(info?.lucro || 0)
-    let bg = 'var(--s2)'
-    if (lucro > 0)   bg = 'rgba(249,115,22,.25)'
-    if (lucro > 100) bg = 'rgba(249,115,22,.5)'
-    if (lucro > 200) bg = 'rgba(249,115,22,.75)'
-    if (lucro > 300) bg = 'var(--or)'
-    cells.push({ key, lucro, bg })
+  // Monta grid igual GitHub: 7 linhas (Dom-Sab) × 12 semanas
+  const hoje    = new Date()
+  const diasSem = hoje.getDay() // 0=Dom
+  // Começa no domingo da semana mais antiga (12 semanas atrás)
+  const inicio  = new Date(hoje)
+  inicio.setDate(hoje.getDate() - diasSem - 11*7)
+
+  // Gera todas as células: 12 semanas × 7 dias = 84 células
+  const semanas = []
+  for (let s = 0; s < 12; s++) {
+    const semana = []
+    for (let d = 0; d < 7; d++) {
+      const dt  = new Date(inicio)
+      dt.setDate(inicio.getDate() + s*7 + d)
+      const key = dt.toISOString().slice(0,10)
+      const info  = dados?.find(r => r.data === key)
+      const lucro = parseFloat(info?.lucro || 0)
+      const futuro = dt > hoje
+      let bg = 'var(--s2)'
+      if (!futuro && lucro > 0)   bg = 'rgba(249,115,22,.3)'
+      if (!futuro && lucro > 100) bg = 'rgba(249,115,22,.55)'
+      if (!futuro && lucro > 200) bg = 'rgba(249,115,22,.8)'
+      if (!futuro && lucro > 300) bg = 'var(--or)'
+      semana.push({ key, lucro, bg, futuro })
+    }
+    semanas.push(semana)
   }
+
   return (
-    <div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
-        {cells.map(c => (
-          <div key={c.key} title={`${c.key}: ${fmtBRL(c.lucro)}`}
-            style={{ aspectRatio:'1', background:c.bg, borderRadius:3, cursor:'default', transition:'transform .1s' }}
-            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.3)'}
-            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
-          />
-        ))}
+    <div style={{ overflowX:'hidden' }}>
+      {/* Grid: 7 linhas × 12 colunas */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gridTemplateRows:'repeat(7,1fr)', gap:2 }}>
+        {Array.from({length:7}, (_,d) =>
+          semanas.map((sem,s) => {
+            const c = sem[d]
+            return (
+              <div key={`${s}-${d}`} title={c.futuro ? '' : `${c.key}: ${fmtBRL(c.lucro)}`}
+                style={{ width:'100%', aspectRatio:'1', background:c.bg, borderRadius:2, cursor:c.futuro?'default':'default', opacity:c.futuro?.3:1 }}
+                onMouseEnter={e=>{if(!c.futuro)e.currentTarget.style.opacity='0.7'}}
+                onMouseLeave={e=>e.currentTarget.style.opacity=c.futuro?'0.3':'1'}
+              />
+            )
+          })
+        )}
       </div>
-      <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:8, fontSize:11, color:'var(--t3)' }}>
+      <div style={{ display:'flex', gap:5, alignItems:'center', marginTop:7, fontSize:10, color:'var(--t3)' }}>
         <span>Menos</span>
-        {['var(--s2)','rgba(249,115,22,.25)','rgba(249,115,22,.5)','rgba(249,115,22,.75)','var(--or)'].map((bg,i) => (
-          <div key={i} style={{ width:11, height:11, background:bg, borderRadius:2 }}/>
+        {['var(--s2)','rgba(249,115,22,.3)','rgba(249,115,22,.55)','rgba(249,115,22,.8)','var(--or)'].map((bg,i)=>(
+          <div key={i} style={{ width:9, height:9, background:bg, borderRadius:2 }}/>
         ))}
         <span>Mais</span>
       </div>
@@ -209,8 +229,8 @@ export default function Dashboard() {
                 return <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'2px 9px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>{dias}d de trial restantes</span>
               })()}
               {streak >= 1 && (
-                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'2px 9px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>
-                  {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d seguidos
+                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 7px', fontSize:10, color:'var(--or2)', fontWeight:600 }}>
+                  {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d
                 </span>
               )}
             </div>
@@ -379,8 +399,8 @@ export default function Dashboard() {
             <div className="card-header">
               <span className="card-title">Atividade — 12 semanas</span>
               {streak >= 1 && (
-                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'3px 10px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>
-                  {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak} dia{streak!==1?'s':''} seguido{streak!==1?'s':''}
+                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 8px', fontSize:10, color:'var(--or2)', fontWeight:600 }}>
+                  {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d seguidos
                 </span>
               )}
             </div>
