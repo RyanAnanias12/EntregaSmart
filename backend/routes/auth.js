@@ -27,8 +27,12 @@ router.post('/register', async (req, res) => {
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36)
 
+    const trialExpira = new Date(Date.now() + 7*24*60*60*1000) // 7 dias
+
     const { rows: [tenant] } = await client.query(
-      `INSERT INTO tenants (nome, slug) VALUES ($1,$2) RETURNING *`, [nomeEquipe, slug]
+      `INSERT INTO tenants (nome, slug, plano, plano_expira_em, trial)
+       VALUES ($1,$2,'pro',$3,true) RETURNING *`,
+      [nomeEquipe, slug, trialExpira]
     )
     const hash = await bcrypt.hash(senha, 10)
     const { rows: [user] } = await client.query(
@@ -40,7 +44,7 @@ router.post('/register', async (req, res) => {
     enviarBoasVindas(nomeAdmin, email, nomeEquipe).catch(() => {})
 
     const token = makeToken(user, tenant)
-    res.status(201).json({ token, user: { id: user.id, nome: user.nome, email: user.email, papel: user.papel }, tenant: { id: tenant.id, nome: tenant.nome, plano: tenant.plano } })
+    res.status(201).json({ token, user: { id: user.id, nome: user.nome, email: user.email, papel: user.papel }, tenant: { id: tenant.id, nome: tenant.nome, plano: tenant.plano, trial: tenant.trial, plano_expira_em: tenant.plano_expira_em } })
   } catch (e) {
     await client.query('ROLLBACK')
     if (e.code === '23505') return res.status(400).json({ error: 'Email já cadastrado' })
@@ -60,7 +64,8 @@ router.post('/login', async (req, res) => {
     const user = rows[0]
     if (!user || !user.ativo || !user.tenant_ativo) return res.status(401).json({ error: 'Credenciais inválidas' })
     if (!await bcrypt.compare(senha, user.senha_hash)) return res.status(401).json({ error: 'Credenciais inválidas' })
-    const tenant = { id: user.tenant_id, nome: user.tenant_nome, plano: user.plano }
+    const { rows: [tenantFull] } = await pool.query(`SELECT * FROM tenants WHERE id=$1`, [user.tenant_id])
+    const tenant = { id: user.tenant_id, nome: user.tenant_nome, plano: user.plano, trial: tenantFull.trial, plano_expira_em: tenantFull.plano_expira_em }
     res.json({ token: makeToken(user, tenant), user: { id: user.id, nome: user.nome, email: user.email, papel: user.papel }, tenant })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })

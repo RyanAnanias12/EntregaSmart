@@ -1,29 +1,32 @@
 import { useState, useEffect } from 'react'
-import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji, fetchMeta, salvarMeta, fetchDespesas, fetchConfig, fetchComparativoInteligente, fetchAbastecimentosStats, fetchStreak, fetchComparativoSemanal, fetchBonificacoesStats } from '../lib/api'
+import { fetchStats, fmtBRL, buildQS, plataformaLabel, plataformaEmoji, fetchMeta, salvarMeta, fetchDespesas, fetchConfig, fetchStreak, fetchComparativoSemanal, fetchBonificacoesStats } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useNavigate } from 'react-router-dom'
 
+// ─── HELPERS ────────────────────────────────────────────────────────────────
 const TT = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background:'var(--s3)', border:'1px solid var(--b2)', borderRadius:10, padding:'10px 14px', fontSize:12 }}>
       <p style={{ color:'var(--t2)', marginBottom:4 }}>{label}</p>
-      {payload.map(p => <p key={p.name} style={{ color:p.color, fontFamily:'var(--fm)' }}>{p.name}: R$ {Number(p.value).toFixed(2)}</p>)}
+      {payload.map(p => <p key={p.name} style={{ color:p.color, fontFamily:'var(--fm)' }}>{p.name}: {fmtBRL(p.value)}</p>)}
     </div>
   )
 }
 
-const COLORS    = ['#f97316','#fb923c','#fdba74','#fed7aa']
-const PIE_COLORS= ['#f97316','#3b82f6','#f59e0b','#10b981']
+function saudacao(nome) {
+  const h = new Date().getHours()
+  const s = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
+  return `${s}, ${(nome||'').split(' ')[0]} 👋`
+}
 
-// Mapa de calor estilo GitHub
 function MapaCalor({ dados }) {
   const hoje = new Date()
   const cells = []
   for (let i = 83; i >= 0; i--) {
-    const d = new Date(hoje)
-    d.setDate(hoje.getDate() - i)
-    const key = d.toISOString().slice(0,10)
+    const d = new Date(hoje); d.setDate(hoje.getDate() - i)
+    const key  = d.toISOString().slice(0,10)
     const info = dados?.find(r => r.data === key)
     const lucro = parseFloat(info?.lucro || 0)
     let bg = 'var(--s2)'
@@ -31,9 +34,8 @@ function MapaCalor({ dados }) {
     if (lucro > 100) bg = 'rgba(249,115,22,.5)'
     if (lucro > 200) bg = 'rgba(249,115,22,.75)'
     if (lucro > 300) bg = 'var(--or)'
-    cells.push({ key, lucro, bg, dia: d.getDate(), mes: d.getMonth() })
+    cells.push({ key, lucro, bg })
   }
-
   return (
     <div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
@@ -45,10 +47,10 @@ function MapaCalor({ dados }) {
           />
         ))}
       </div>
-      <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:10, fontSize:11, color:'var(--t3)' }}>
+      <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:8, fontSize:11, color:'var(--t3)' }}>
         <span>Menos</span>
-        {['var(--s2)','rgba(249,115,22,.25)','rgba(249,115,22,.5)','rgba(249,115,22,.75)','var(--or)'].map((bg,i) => (
-          <div key={i} style={{ width:12, height:12, background:bg, borderRadius:2 }}/>
+        {['var(--s2)','rgba(249,115,22,.25)','rgba(249,115,22,.5)','rgba(249,115,22,.75)','var(--or)'].map((bg,i)=>(
+          <div key={i} style={{ width:11, height:11, background:bg, borderRadius:2 }}/>
         ))}
         <span>Mais</span>
       </div>
@@ -56,49 +58,42 @@ function MapaCalor({ dados }) {
   )
 }
 
-// Streak badge
-function StreakBadge({ streak }) {
-  if (!streak || streak < 1) return null
-  const emoji = streak >= 30 ? '🔥🔥🔥' : streak >= 14 ? '🔥🔥' : '🔥'
-  return (
-    <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.25)', borderRadius:99, padding:'4px 12px', fontSize:12, color:'var(--or2)', fontWeight:600 }}>
-      {emoji} {streak} dia{streak!==1?'s':''} seguido{streak!==1?'s':''}!
-    </div>
-  )
+const PERIODOS = [
+  { key:'hoje',    label:'Hoje' },
+  { key:'semana',  label:'Semana' },
+  { key:'mes',     label:'Mês' },
+  { key:'custom',  label:'Custom' },
+]
+
+function getPeriodo(key) {
+  const hoje = new Date()
+  const fmt  = d => d.toISOString().slice(0,10)
+  if (key === 'hoje')   return { data_inicio: fmt(hoje),                                       data_fim: fmt(hoje) }
+  if (key === 'semana') return { data_inicio: fmt(new Date(hoje.setDate(hoje.getDate()-hoje.getDay()+1))), data_fim: fmt(new Date(new Date().setDate(new Date().getDate()-new Date().getDay()+7))) }
+  if (key === 'mes')    return { data_inicio: fmt(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), data_fim: fmt(new Date(new Date().getFullYear(), new Date().getMonth()+1, 0)) }
+  return null
 }
 
-// Saudação personalizada
-function saudacao(nome) {
-  const h = new Date().getHours()
-  const s = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
-  return `${s}, ${(nome||'').split(' ')[0]} 👋`
-}
-
+// ─── DASHBOARD ──────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const nav = useNavigate()
   const { tenant, user } = useAuth()
   const isPro  = tenant?.plano === 'pro'
   const isSolo = tenant?.plano === 'solo'
   const isPaid = isPro || isSolo
 
-  const [stats,       setStats]       = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [period,      setPeriod]      = useState(() => {
-    const hoje = new Date()
-    return {
-      data_inicio: new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10),
-      data_fim:    new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10),
-    }
-  })
-  const [meta,         setMeta]         = useState(0)
-  const [despesas,     setDespesas]     = useState([])
-  const [config,       setConfig]       = useState({ modo_solo:false, meta_diaria:0 })
-  const [editMeta,     setEditMeta]     = useState(false)
-  const [metaInput,    setMetaInput]    = useState('')
-  const [comparativo,  setComparativo]  = useState(null)
-  const [statsAbastec, setStatsAbastec] = useState(null)
-  const [streakData,   setStreakData]   = useState(null)
-  const [semanal,      setSemanal]      = useState(null)
-  const [statsBonif,   setStatsBonif]   = useState(null)
+  const [periodoKey, setPeriodoKey] = useState('mes')
+  const [period, setPeriod] = useState(getPeriodo('mes'))
+  const [stats,       setStats]      = useState(null)
+  const [loading,     setLoading]    = useState(true)
+  const [meta,        setMeta]       = useState(0)
+  const [editMeta,    setEditMeta]   = useState(false)
+  const [metaInput,   setMetaInput]  = useState('')
+  const [despesas,    setDespesas]   = useState([])
+  const [streakData,  setStreakData]  = useState(null)
+  const [semanal,     setSemanal]    = useState(null)
+  const [statsBonif,  setStatsBonif] = useState(null)
+  const [rotaHoje,    setRotaHoje]   = useState(null)
 
   useEffect(() => {
     setLoading(true)
@@ -108,15 +103,20 @@ export default function Dashboard() {
   useEffect(() => {
     fetchMeta().then(d => { setMeta(d.meta_mensal||0); setMetaInput(d.meta_mensal||'') }).catch(()=>{})
     fetchDespesas().then(setDespesas).catch(()=>{})
-    fetchConfig().then(setConfig).catch(()=>{})
     fetchStreak().then(setStreakData).catch(()=>{})
     fetchComparativoSemanal().then(setSemanal).catch(()=>{})
     fetchBonificacoesStats().then(setStatsBonif).catch(()=>{})
-    if (isPaid) {
-      fetchComparativoInteligente().then(setComparativo).catch(()=>{})
-      fetchAbastecimentosStats().then(setStatsAbastec).catch(()=>{})
-    }
+    // Próxima rota planejada hoje
+    const hoje = new Date().toISOString().slice(0,10)
+    fetch((import.meta.env.VITE_API_URL||'/api') + `/rotas?data_inicio=${hoje}&data_fim=${hoje}&status=planejada`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')||sessionStorage.getItem('token')||''}` }
+    }).then(r=>r.json()).then(d=>{ if (d?.rotas?.length) setRotaHoje(d.rotas[0]) }).catch(()=>{})
   }, [])
+
+  function mudarPeriodo(key) {
+    setPeriodoKey(key)
+    if (key !== 'custom') setPeriod(getPeriodo(key))
+  }
 
   async function handleSalvarMeta() {
     const v = parseFloat(metaInput)||0
@@ -124,21 +124,19 @@ export default function Dashboard() {
     setMeta(v); setEditMeta(false)
   }
 
-  const setP = (k,v) => setPeriod(p=>({...p,[k]:v}))
-
-  // Skeleton loader
-  if (loading) return (
+  // Skeleton
+  if (loading && !stats) return (
     <div style={{ padding:'28px 0 60px' }}>
       <div className="container">
         <div style={{ marginBottom:24 }}>
           <div style={{ width:220, height:32, background:'var(--s2)', borderRadius:8, marginBottom:8, animation:'pulse 1.5s ease-in-out infinite' }}/>
           <div style={{ width:140, height:16, background:'var(--s2)', borderRadius:6 }}/>
         </div>
-        <div className="grid4" style={{ marginBottom:16 }}>
-          {[1,2,3,4].map(i=>(
-            <div key={i} style={{ background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'18px 20px', height:80 }}>
-              <div style={{ width:'60%', height:10, background:'var(--s2)', borderRadius:4, marginBottom:12 }}/>
-              <div style={{ width:'40%', height:24, background:'var(--s2)', borderRadius:6 }}/>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:14 }}>
+          {[1,2,3].map(i=>(
+            <div key={i} style={{ background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'20px', height:90 }}>
+              <div style={{ width:'50%', height:10, background:'var(--s2)', borderRadius:4, marginBottom:14 }}/>
+              <div style={{ width:'70%', height:26, background:'var(--s2)', borderRadius:6 }}/>
             </div>
           ))}
         </div>
@@ -147,163 +145,180 @@ export default function Dashboard() {
   )
   if (!stats) return null
 
-  const g           = stats.geral
-  const meses       = stats.porMes || []
-  const rateio      = (stats.rateioAcumulado||[]).sort((a,b)=>b.valor-a.valor)
-  const plataformas = (stats.porPlataforma||[]).map(p=>({...p,name:plataformaLabel(p.plataforma)}))
-  const taxaGeral   = (() => {
-    const tot = parseInt(g.total_entregues)+parseInt(g.total_devolvidos)
-    if (!tot) return null
-    return Math.round((parseInt(g.total_entregues)/tot)*100)
-  })()
-
-  // Lucro real com bonificações
+  const g = stats.geral
+  const meses = stats.porMes || []
   const totalDespesas = despesas.reduce((a,d)=>a+parseFloat(d.valor),0)
   const totalBonif    = parseFloat(statsBonif?.total_valor||0)
-  // total_liquido já inclui bonificacao das rotas — subtrair despesas e somar bônus externos
-  const lucroRotas = parseFloat(g?.total_liquido||0) - parseFloat(g?.total_bonificacao||0)
-  const lucroReal  = lucroRotas + totalBonif - totalDespesas
+  const lucroRotas    = parseFloat(g?.total_liquido||0) - parseFloat(g?.total_bonificacao||0)
+  const lucroReal     = lucroRotas + totalBonif - totalDespesas
+  const streak        = streakData?.streak || 0
+
+  // META
+  const metaAtual = lucroRotas + totalBonif
+  const metaPct   = meta > 0 ? Math.min(Math.round((metaAtual/meta)*100), 100) : 0
+  const metaCor   = metaPct >= 100 ? 'var(--gr2)' : metaPct >= 70 ? 'var(--or)' : 'var(--ye)'
+  const diasMes   = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate()
+  const diaAtual  = new Date().getDate()
+  const diasRest  = diasMes - diaAtual
+  const ritmo     = diaAtual > 0 ? metaAtual / diaAtual : 0
+  const previsao  = meta > 0 && ritmo > 0 ? Math.ceil((meta - metaAtual) / ritmo) : null
+
+  // RESUMO SEMANA PASSADA
+  const resumoSemana = semanal?.anterior
+    ? `Na semana passada você fez ${semanal.anterior.rotas} rota${semanal.anterior.rotas!=1?'s':''} e lucrou ${fmtBRL(semanal.anterior.lucro)}`
+    : null
 
   return (
-    <div style={{ padding:'28px 0 60px' }}>
+    <div style={{ padding:'24px 0 60px' }}>
       <div className="container">
 
-        {/* SAUDAÇÃO */}
-        <div style={{ marginBottom:20, display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-          <div>
-            <h1 style={{ fontFamily:'var(--ff)', fontSize:24, fontWeight:800, letterSpacing:'-.02em', marginBottom:4 }}>
-              {saudacao(user?.nome)}
-            </h1>
-            <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-              <p style={{ color:'var(--t2)', fontSize:13 }}>Dashboard</p>
-              {/* Badge de plano */}
-              <span className={`badge ${isPro?'badge-pro':isSolo?'badge-orange':'badge-gray'}`} style={{ fontSize:10 }}>
-                {isPro?'⭐ Pro':isSolo?'🚴 Solo':'Free'}
-              </span>
-              {streakData?.streak >= 2 && <StreakBadge streak={streakData.streak}/>}
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8, alignItems:'flex-end', flexWrap:'wrap' }}>
-            <div className="field">
-              <label className="field-label">De</label>
-              <input className="input" type="date" value={period.data_inicio} onChange={e=>setP('data_inicio',e.target.value)} style={{ width:150 }}/>
-            </div>
-            <div className="field">
-              <label className="field-label">Até</label>
-              <input className="input" type="date" value={period.data_fim} onChange={e=>setP('data_fim',e.target.value)} style={{ width:150 }}/>
-            </div>
-          </div>
-        </div>
-
-        {/* COMPARATIVO SEMANAL */}
-        {semanal && parseFloat(semanal.anterior?.lucro||0) > 0 && (
-          <div style={{ marginBottom:14, padding:'12px 18px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+        {/* ── HEADER ─────────────────────────────────────────────────── */}
+        <div style={{ marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:6 }}>
             <div>
-              <p style={{ fontSize:11, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:3 }}>Esta semana vs semana passada</p>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontFamily:'var(--fm)', fontSize:18, fontWeight:700, color: semanal.diff>=0?'var(--gr2)':'var(--re)' }}>
-                  {semanal.diff>=0?'+':''}{fmtBRL(semanal.diff)}
+              <h1 style={{ fontFamily:'var(--ff)', fontSize:22, fontWeight:800, letterSpacing:'-.02em', marginBottom:4 }}>
+                {saudacao(user?.nome)}
+              </h1>
+              <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                <span className={`badge ${isPro&&!tenant?.trial?'badge-pro':isSolo?'badge-orange':'badge-gray'}`} style={{ fontSize:10 }}>
+                  {isPro&&tenant?.trial?'⏳ Trial':isPro?'⭐ Pro':isSolo?'🚴 Solo':'Free'}
                 </span>
-                {semanal.pct !== null && (
-                  <span style={{ background: semanal.pct>=0?'var(--gd)':'var(--rd)', color: semanal.pct>=0?'var(--gr2)':'var(--re)', border:`1px solid ${semanal.pct>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'}`, borderRadius:99, padding:'2px 9px', fontSize:11, fontWeight:700 }}>
-                    {semanal.pct>=0?'↑':'↓'}{Math.abs(semanal.pct)}%
+                {tenant?.trial && tenant?.plano_expira_em && (() => {
+                  const dias = Math.max(0, Math.ceil((new Date(tenant.plano_expira_em) - new Date()) / 86400000))
+                  return <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'2px 9px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>{dias}d de trial</span>
+                })()}
+                {streak >= 1 && (
+                  <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'2px 9px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>
+                    {streak >= 30 ? '🔥🔥🔥' : streak >= 14 ? '🔥🔥' : '🔥'} {streak}d seguidos
                   </span>
                 )}
               </div>
             </div>
-            <div style={{ display:'flex', gap:16 }}>
-              <div style={{ textAlign:'center' }}>
-                <p style={{ fontSize:10, color:'var(--t3)', marginBottom:2 }}>Esta semana</p>
-                <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--or)', fontWeight:700 }}>{fmtBRL(semanal.atual?.lucro||0)}</p>
-              </div>
-              <div style={{ textAlign:'center' }}>
-                <p style={{ fontSize:10, color:'var(--t3)', marginBottom:2 }}>Semana passada</p>
-                <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--t2)' }}>{fmtBRL(semanal.anterior?.lucro||0)}</p>
+          </div>
+
+          {/* Resumo semana passada — 1 linha */}
+          {resumoSemana && (
+            <p style={{ fontSize:12, color:'var(--t3)', marginTop:4 }}>{resumoSemana}</p>
+          )}
+        </div>
+
+        {/* PRÓXIMA ROTA PLANEJADA HOJE */}
+        {rotaHoje && (
+          <div style={{ marginBottom:12, padding:'10px 16px', background:'var(--od)', border:'1px solid rgba(249,115,22,.2)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontSize:14 }}>📍</span>
+              <div>
+                <p style={{ fontSize:12, color:'var(--t3)', marginBottom:1 }}>Rota planejada hoje</p>
+                <p style={{ fontSize:13, color:'var(--t)', fontWeight:600 }}>{rotaHoje.ponto_coleta}{rotaHoje.hora_inicio?` · ${rotaHoje.hora_inicio}`:''}</p>
               </div>
             </div>
+            <button onClick={()=>nav('/rotas')} className="btn btn-ghost btn-sm">Ver →</button>
           </div>
         )}
 
-        {/* ESTADO VAZIO MOTIVADOR */}
+        {/* TABS DE PERÍODO */}
+        <div style={{ display:'flex', gap:4, marginBottom:14, background:'var(--s2)', borderRadius:'var(--r)', padding:4, width:'fit-content' }}>
+          {PERIODOS.map(p => (
+            <button key={p.key} onClick={()=>mudarPeriodo(p.key)}
+              style={{ background:periodoKey===p.key?'var(--s1)':'transparent', border:periodoKey===p.key?'1px solid var(--b1)':'1px solid transparent', color:periodoKey===p.key?'var(--t)':'var(--t3)', borderRadius:6, padding:'5px 14px', fontSize:12, fontWeight:periodoKey===p.key?600:400, cursor:'pointer', transition:'all .15s' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Custom date range */}
+        {periodoKey === 'custom' && (
+          <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+            <input className="input" type="date" value={period.data_inicio} onChange={e=>setPeriod(p=>({...p,data_inicio:e.target.value}))} style={{ width:150 }}/>
+            <input className="input" type="date" value={period.data_fim}    onChange={e=>setPeriod(p=>({...p,data_fim:e.target.value}))}    style={{ width:150 }}/>
+          </div>
+        )}
+
+        {/* ESTADO VAZIO */}
         {parseInt(g.total_rotas) === 0 && (
-          <div style={{ marginBottom:16, padding:'28px 24px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', textAlign:'center' }}>
+          <div style={{ marginBottom:16, padding:'32px 24px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', textAlign:'center' }}>
             <p style={{ fontSize:32, marginBottom:10 }}>🚚</p>
-            <h2 style={{ fontFamily:'var(--ff)', fontSize:18, fontWeight:700, marginBottom:6 }}>Nenhuma rota ainda</h2>
-            <p style={{ fontSize:13, color:'var(--t2)', marginBottom:20, maxWidth:360, margin:'0 auto 20px' }}>
-              Registre a primeira rota e descubra seu lucro real depois do combustível. Leva menos de 1 minuto.
+            <h2 style={{ fontFamily:'var(--ff)', fontSize:17, fontWeight:700, marginBottom:6 }}>Nenhuma rota ainda</h2>
+            <p style={{ fontSize:13, color:'var(--t2)', marginBottom:20, maxWidth:340, margin:'0 auto 20px' }}>
+              Registre a primeira rota e descubra seu lucro real depois do combustível.
             </p>
-            <a href="/rotas?nova=1" className="btn btn-primary" style={{ fontSize:14, padding:'11px 28px' }}>+ Registrar primeira rota →</a>
+            <a href="/rotas?nova=1" className="btn btn-primary" style={{ fontSize:13, padding:'10px 24px' }}>+ Registrar primeira rota →</a>
           </div>
         )}
 
         {/* BANNER FREE */}
         {!isPaid && parseInt(g.total_rotas) > 0 && (
-          <div style={{ marginBottom:14, padding:'14px 18px', background:'linear-gradient(135deg,rgba(249,115,22,.1),rgba(251,146,60,.05))', border:'1px solid rgba(249,115,22,.25)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-            <div>
-              <p style={{ fontSize:13, fontWeight:600, color:'var(--or2)', marginBottom:2 }}>⭐ Desbloqueie o Dashboard completo</p>
-              <p style={{ fontSize:12, color:'var(--t3)' }}>Gráficos, mapa de calor, comparativo semanal e muito mais por R$ 9,90/mês.</p>
-            </div>
+          <div style={{ marginBottom:12, padding:'12px 16px', background:'rgba(249,115,22,.06)', border:'1px solid rgba(249,115,22,.2)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+            <p style={{ fontSize:13, color:'var(--or2)', fontWeight:500 }}>⭐ Dashboard completo por R$ 9,90/mês</p>
             <a href="/precos" className="btn btn-primary btn-sm">Ver planos →</a>
           </div>
         )}
 
-        {/* MÉTRICAS */}
-        <div className="grid4" style={{ marginBottom:14 }}>
-          <div className="metric"><p className="metric-label">Total bruto</p><p className="metric-value orange">{fmtBRL(g.total_bruto)}</p><p className="metric-sub">{g.total_rotas} rota{g.total_rotas!=1?'s':''}</p></div>
-          <div className="metric">
-            <p className="metric-label">Lucro líquido</p>
-            <p className="metric-value green">{fmtBRL(parseFloat(g.total_liquido||0) - parseFloat(g.total_bonificacao||0))}</p>
-            <p className="metric-sub">após combustível</p>
-          </div>
-          <div className="metric"><p className="metric-label">Combustível</p><p className="metric-value yellow">{fmtBRL(g.total_combustivel)}</p><p className="metric-sub">{Number(g.total_kms).toFixed(0)} km</p></div>
-          <div className="metric">
-            <p className="metric-label">Taxa entrega</p>
-            {isPaid ? (
-              <p className="metric-value">{taxaGeral!==null?`${taxaGeral}%`:'—'}</p>
-            ) : (
-              <p className="metric-value" style={{ filter:'blur(5px)', userSelect:'none', pointerEvents:'none' }}>89%</p>
-            )}
-            <p className="metric-sub">{g.total_entregues} entregues</p>
-          </div>
-        </div>
-
-        {/* LUCRO REAL (com bonificações) */}
-        {isPaid && (despesas.length > 0 || totalBonif > 0) && (
-          <div className="card" style={{ marginBottom:14, border: lucroReal>=0?'1px solid rgba(16,185,129,.2)':'1px solid rgba(239,68,68,.2)' }}>
-            <div className="card-header">
-              <span className="card-title">💰 Lucro real do mês</span>
-              <a href="/bonificacoes" style={{ fontSize:12, color:'var(--or2)', textDecoration:'none' }}>+ Bônus/desafios →</a>
+        {/* ── 3 CARDS PRINCIPAIS ────────────────────────────────────── */}
+        {parseInt(g.total_rotas) > 0 && (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:12 }}>
+            {/* LUCRO LÍQUIDO — destaque */}
+            <div style={{ background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'18px 20px', gridColumn:'1', position:'relative', overflow:'hidden' }}>
+              <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'var(--gr2)', borderRadius:'var(--r) var(--r) 0 0' }}/>
+              <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:8 }}>Lucro líquido</p>
+              <p style={{ fontFamily:'var(--fm)', fontSize:28, fontWeight:800, color:'var(--gr2)', letterSpacing:'-.02em', marginBottom:4 }}>{fmtBRL(lucroRotas)}</p>
+              <p style={{ fontSize:11, color:'var(--t3)' }}>{g.total_rotas} rota{g.total_rotas!=1?'s':''} concluída{g.total_rotas!=1?'s':''}</p>
+              {(totalBonif > 0 || totalDespesas > 0) && (
+                <p style={{ fontSize:11, color:lucroReal>=lucroRotas?'var(--gr2)':'var(--re)', marginTop:4, fontWeight:600 }}>
+                  real: {fmtBRL(lucroReal)}
+                  {totalBonif>0 && <span style={{ color:'var(--ye)', fontWeight:400 }}> +{fmtBRL(totalBonif)} bônus</span>}
+                </p>
+              )}
             </div>
-            <div className="card-body">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10 }}>
-                <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 14px' }}>
-                  <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>Lucro das rotas</p>
-                  <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--gr2)' }}>{fmtBRL(parseFloat(g?.total_liquido||0) - parseFloat(g?.total_bonificacao||0))}</p>
-                </div>
-                {totalBonif > 0 && (
-                  <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 14px' }}>
-                    <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>Bônus / desafios</p>
-                    <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--ye)' }}>+ {fmtBRL(totalBonif)}</p>
-                  </div>
+
+            {/* BRUTO */}
+            <div className="metric">
+              <p className="metric-label">Faturamento bruto</p>
+              <p className="metric-value orange">{fmtBRL(g.total_bruto)}</p>
+              <p className="metric-sub">{Number(g.total_kms||0).toFixed(0)} km rodados</p>
+            </div>
+
+            {/* COMBUSTÍVEL */}
+            <div className="metric">
+              <p className="metric-label">Combustível</p>
+              <p className="metric-value yellow">{fmtBRL(g.total_combustivel)}</p>
+              <p className="metric-sub">{g.total_entregues} pacotes entregues</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── COMPARATIVO SEMANAL ──────────────────────────────────── */}
+        {isPaid && semanal && parseFloat(semanal.anterior?.lucro||0) > 0 && (
+          <div style={{ marginBottom:12, padding:'14px 18px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', justifyContent:'space-between' }}>
+            <div>
+              <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:6 }}>Esta semana vs semana passada</p>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontFamily:'var(--fm)', fontSize:22, fontWeight:800, color:semanal.diff>=0?'var(--gr2)':'var(--re)' }}>
+                  {semanal.diff>=0?'+':''}{fmtBRL(semanal.diff)}
+                </span>
+                {semanal.pct !== null && (
+                  <span style={{ background:semanal.pct>=0?'var(--gd)':'var(--rd)', color:semanal.pct>=0?'var(--gr2)':'var(--re)', border:`1px solid ${semanal.pct>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'}`, borderRadius:99, padding:'3px 10px', fontSize:12, fontWeight:700 }}>
+                    {semanal.pct>=0?'↑':'↓'}{Math.abs(semanal.pct)}%
+                  </span>
                 )}
-                {despesas.length > 0 && (
-                  <div style={{ background:'var(--s2)', borderRadius:8, padding:'10px 14px' }}>
-                    <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>Despesas fixas</p>
-                    <p style={{ fontFamily:'var(--fm)', fontSize:14, color:'var(--re)' }}>− {fmtBRL(totalDespesas)}</p>
-                  </div>
-                )}
-                <div style={{ background: lucroReal>=0?'var(--gd)':'var(--rd)', borderRadius:8, padding:'10px 14px', border:`1px solid ${lucroReal>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'}` }}>
-                  <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:4 }}>Lucro real total</p>
-                  <p style={{ fontFamily:'var(--fm)', fontSize:14, color: lucroReal>=0?'var(--gr2)':'var(--re)', fontWeight:700 }}>{fmtBRL(lucroReal)}</p>
-                </div>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:20 }}>
+              <div style={{ textAlign:'right' }}>
+                <p style={{ fontSize:10, color:'var(--t3)', marginBottom:3 }}>Esta semana</p>
+                <p style={{ fontFamily:'var(--fm)', fontSize:15, color:'var(--or)', fontWeight:700 }}>{fmtBRL(semanal.atual?.lucro||0)}</p>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <p style={{ fontSize:10, color:'var(--t3)', marginBottom:3 }}>Semana passada</p>
+                <p style={{ fontFamily:'var(--fm)', fontSize:15, color:'var(--t2)' }}>{fmtBRL(semanal.anterior?.lucro||0)}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* META MENSAL */}
-        {(meta>0||editMeta) && (
-          <div className="card" style={{ marginBottom:14 }}>
+        {/* ── META MENSAL ─────────────────────────────────────────── */}
+        {isPaid && (meta > 0 || editMeta) && (
+          <div className="card" style={{ marginBottom:12 }}>
             <div className="card-header">
               <span className="card-title">Meta mensal</span>
               <button className="btn btn-ghost btn-sm" onClick={()=>{ setEditMeta(e=>!e); setMetaInput(meta) }}>{editMeta?'Cancelar':'✏️ Editar'}</button>
@@ -317,41 +332,48 @@ export default function Dashboard() {
                   </div>
                   <button className="btn btn-primary" onClick={handleSalvarMeta}>Salvar</button>
                 </div>
-              ) : (() => {
-                const atual = lucroRotas + totalBonif
-                const pct   = meta>0?Math.min(Math.round((atual/meta)*100),100):0
-                const cor   = pct>=100?'var(--gr2)':pct>=70?'var(--or)':'var(--ye)'
-                return (
-                  <div>
-                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                      <span style={{ fontSize:13, color:'var(--t2)' }}>{fmtBRL(atual)} de {fmtBRL(meta)}</span>
-                      <span style={{ fontFamily:'var(--fm)', fontSize:14, color:cor, fontWeight:700 }}>{pct}%</span>
+              ) : (
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:10 }}>
+                    <div>
+                      <p style={{ fontFamily:'var(--fm)', fontSize:20, fontWeight:700, color:metaCor }}>{fmtBRL(metaAtual)}</p>
+                      <p style={{ fontSize:12, color:'var(--t3)', marginTop:2 }}>de {fmtBRL(meta)}</p>
                     </div>
-                    <div style={{ background:'var(--s3)', borderRadius:99, height:10, overflow:'hidden' }}>
-                      <div style={{ height:'100%', width:`${pct}%`, background:cor, borderRadius:99, transition:'width .6s ease' }}/>
-                    </div>
-                    <p style={{ fontSize:11, color:'var(--t3)', marginTop:8 }}>
-                      {pct>=100?'🎉 Meta atingida!': `Faltam ${fmtBRL(meta-atual)} para atingir a meta`}
-                    </p>
+                    <span style={{ fontFamily:'var(--fm)', fontSize:24, fontWeight:800, color:metaCor }}>{metaPct}%</span>
                   </div>
-                )
-              })()}
+                  <div style={{ background:'var(--s3)', borderRadius:99, height:12, overflow:'hidden', marginBottom:8 }}>
+                    <div style={{ height:'100%', width:`${metaPct}%`, background:metaCor, borderRadius:99, transition:'width .6s ease' }}/>
+                  </div>
+                  <p style={{ fontSize:12, color:'var(--t3)' }}>
+                    {metaPct >= 100
+                      ? '🎉 Meta atingida!'
+                      : previsao !== null && previsao > 0
+                        ? `Faltam ${fmtBRL(meta-metaAtual)} — no ritmo atual você bate em ~${previsao} dia${previsao!==1?'s':''}`
+                        : `Faltam ${fmtBRL(meta-metaAtual)} para atingir a meta`
+                    }
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
         {isPaid && !meta && !editMeta && (
-          <div style={{ marginBottom:14, padding:'12px 16px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-            <p style={{ fontSize:13, color:'var(--t2)' }}>🎯 Defina uma meta mensal</p>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setEditMeta(true)}>Definir meta</button>
+          <div style={{ marginBottom:12, padding:'10px 16px', background:'var(--s1)', border:'1px dashed var(--b2)', borderRadius:'var(--r)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <p style={{ fontSize:13, color:'var(--t3)' }}>🎯 Defina uma meta mensal</p>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setEditMeta(true)}>Definir →</button>
           </div>
         )}
 
-        {/* MAPA DE CALOR */}
+        {/* ── MAPA DE CALOR ───────────────────────────────────────── */}
         {isPaid && streakData?.mapa && streakData.mapa.length > 0 && (
-          <div className="card" style={{ marginBottom:14 }}>
+          <div className="card" style={{ marginBottom:12 }}>
             <div className="card-header">
-              <span className="card-title">Atividade — últimos 84 dias</span>
-              <StreakBadge streak={streakData.streak}/>
+              <span className="card-title">Atividade — 12 semanas</span>
+              {streak >= 1 && (
+                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'3px 10px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>
+                  {streak >= 30 ? '🔥🔥🔥' : streak >= 14 ? '🔥🔥' : '🔥'} {streak} dia{streak!==1?'s':''} seguido{streak!==1?'s':''}
+                </span>
+              )}
             </div>
             <div className="card-body">
               <MapaCalor dados={streakData.mapa}/>
@@ -359,44 +381,43 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* FREE — seções desfocadas */}
-        {!isPaid && parseInt(g.total_rotas)>0 && (
-          <div style={{ position:'relative', marginBottom:14 }}>
-            <div style={{ filter:'blur(6px)', pointerEvents:'none', userSelect:'none' }}>
-              <div className="grid2">
-                <div className="card" style={{ height:200 }}>
-                  <div className="card-header"><span className="card-title">Faturamento mensal</span></div>
-                  <div className="card-body" style={{ display:'flex', alignItems:'center', justifyContent:'center', height:140 }}>
-                    <div style={{ width:'100%', height:100, background:'linear-gradient(180deg,rgba(249,115,22,.3) 0%,transparent)', borderRadius:8 }}/>
-                  </div>
+        {/* FREE — blur preview */}
+        {!isPaid && parseInt(g.total_rotas) > 0 && (
+          <div style={{ position:'relative', marginBottom:12 }}>
+            <div style={{ filter:'blur(5px)', pointerEvents:'none', userSelect:'none', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div className="card" style={{ height:180 }}>
+                <div className="card-header"><span className="card-title">Faturamento mensal</span></div>
+                <div className="card-body" style={{ display:'flex', alignItems:'flex-end', gap:4, paddingTop:8 }}>
+                  {[60,80,45,90,70,100,85].map((h,i)=>(
+                    <div key={i} style={{ flex:1, height:`${h}%`, background:'rgba(249,115,22,.4)', borderRadius:'4px 4px 0 0' }}/>
+                  ))}
                 </div>
-                <div className="card" style={{ height:200 }}>
-                  <div className="card-header"><span className="card-title">Mapa de calor</span></div>
-                  <div className="card-body">
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
-                      {Array(84).fill(0).map((_,i) => <div key={i} style={{ aspectRatio:'1', background:`rgba(249,115,22,${Math.random()*.6})`, borderRadius:3 }}/>)}
-                    </div>
+              </div>
+              <div className="card" style={{ height:180 }}>
+                <div className="card-header"><span className="card-title">Atividade 12 semanas</span></div>
+                <div className="card-body">
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:3 }}>
+                    {Array(84).fill(0).map((_,i)=><div key={i} style={{ aspectRatio:'1', background:`rgba(249,115,22,${Math.random()*.6+.1})`, borderRadius:3 }}/>)}
                   </div>
                 </div>
               </div>
             </div>
-            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(9,9,11,.5)', borderRadius:'var(--r)', backdropFilter:'blur(2px)' }}>
+            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(9,9,11,.6)', borderRadius:'var(--r)', backdropFilter:'blur(2px)' }}>
               <div style={{ textAlign:'center', padding:24 }}>
-                <p style={{ fontSize:20, marginBottom:8 }}>🔒</p>
-                <p style={{ fontSize:15, fontWeight:700, color:'var(--t)', marginBottom:6 }}>Disponível no Solo e Pro</p>
-                <p style={{ fontSize:13, color:'var(--t2)', marginBottom:16 }}>Gráficos, mapa de calor, streak e comparativo semanal</p>
-                <a href="/precos" className="btn btn-primary">Ver planos a partir de R$ 9,90</a>
+                <p style={{ fontSize:15, fontWeight:700, color:'var(--t)', marginBottom:6 }}>🔒 Disponível no Solo e Pro</p>
+                <p style={{ fontSize:12, color:'var(--t2)', marginBottom:16 }}>Mapa de calor, comparativo semanal, meta mensal e gráficos</p>
+                <a href="/precos" className="btn btn-primary btn-sm">Ver planos a partir de R$ 9,90 →</a>
               </div>
             </div>
           </div>
         )}
 
-        {/* GRÁFICO */}
-        {isPro && meses.length>0 && (
-          <div className="card" style={{ marginBottom:14 }}>
+        {/* ── GRÁFICO FATURAMENTO (Pro) ────────────────────────────── */}
+        {isPaid && meses.length > 1 && (
+          <div className="card" style={{ marginBottom:12 }}>
             <div className="card-header">
               <span className="card-title">Faturamento mensal</span>
-              <div style={{ display:'flex', gap:14 }}>
+              <div style={{ display:'flex', gap:12 }}>
                 {[{color:'#f97316',label:'Bruto'},{color:'#10b981',label:'Líquido'}].map(i=>(
                   <div key={i.label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--t2)' }}>
                     <span style={{ width:10, height:2, background:i.color, display:'inline-block', borderRadius:1 }}/>{i.label}
@@ -405,13 +426,13 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="card-body" style={{ paddingTop:6 }}>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={meses} margin={{ top:10, right:8, left:0, bottom:0 }}>
                   <defs>
-                    <linearGradient id="gOr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={.22}/><stop offset="100%" stopColor="#f97316" stopOpacity={0}/></linearGradient>
-                    <linearGradient id="gGr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={.18}/><stop offset="100%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
+                    <linearGradient id="gOr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={.2}/><stop offset="100%" stopColor="#f97316" stopOpacity={0}/></linearGradient>
+                    <linearGradient id="gGr" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={.15}/><stop offset="100%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
                   </defs>
-                  <CartesianGrid stroke="rgba(255,255,255,.035)" strokeDasharray="3 3"/>
+                  <CartesianGrid stroke="rgba(255,255,255,.03)" strokeDasharray="3 3"/>
                   <XAxis dataKey="mes" tick={{ fill:'#4a4a62', fontSize:11 }} axisLine={false} tickLine={false}/>
                   <YAxis tick={{ fill:'#4a4a62', fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v=>`R$${v}`}/>
                   <Tooltip content={<TT/>}/>
@@ -419,129 +440,6 @@ export default function Dashboard() {
                   <Area type="monotone" dataKey="liquido" name="Líquido" stroke="#10b981" strokeWidth={2} fill="url(#gGr)" dot={false}/>
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {isPaid && <div className="grid2" style={{ marginBottom:14 }}>
-          <div className="card">
-            <div className="card-header"><span className="card-title">{isSolo?'💰 Seus ganhos':'Rateio acumulado'}</span></div>
-            <div className="card-body">
-              {isSolo ? (
-                <div>
-                  {[
-                    { label:'Lucro líquido',  val:fmtBRL(lucroRotas), color:'var(--gr2)' },
-                    { label:'Faturamento bruto', val:fmtBRL(g?.total_bruto), color:'var(--or)' },
-                    { label:'KMs rodados',    val:`${Number(g?.total_kms||0).toFixed(0)} km`, color:'var(--t)' },
-                    { label:'Pacotes',        val:g?.total_entregues||0, color:'var(--t)' },
-                  ].map(item=>(
-                    <div key={item.label} className="rateio-row">
-                      <p style={{ fontSize:13, color:'var(--t2)' }}>{item.label}</p>
-                      <span style={{ fontFamily:'var(--fm)', fontSize:15, color:item.color }}>{item.val}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : rateio.length===0
-                ? <p style={{ color:'var(--t3)', fontSize:13 }}>Nenhuma rota concluída ainda</p>
-                : rateio.map(p=>(
-                  <div key={p.nome} className="rateio-row">
-                    <div className="rateio-left">
-                      <div className="avatar sm">{p.nome.slice(0,2).toUpperCase()}</div>
-                      <p className="rateio-nome">{p.nome}</p>
-                    </div>
-                    <span className="rateio-val">{fmtBRL(p.valor)}</span>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-header"><span className="card-title">Rotas por plataforma</span></div>
-            <div className="card-body">
-              {plataformas.length===0
-                ? <p style={{ color:'var(--t3)', fontSize:13 }}>Sem dados ainda</p>
-                : (
-                  <>
-                    <ResponsiveContainer width="100%" height={130}>
-                      <PieChart>
-                        <Pie data={plataformas} dataKey="rotas" nameKey="name" cx="50%" cy="50%" outerRadius={55} innerRadius={30}>
-                          {plataformas.map((_,i)=><Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
-                        </Pie>
-                        <Tooltip formatter={(v,n)=>[v+' rotas',n]}/>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:8 }}>
-                      {plataformas.map((p,i)=>(
-                        <div key={p.plataforma} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--t2)' }}>
-                          <span style={{ width:8, height:8, borderRadius:'50%', background:PIE_COLORS[i%PIE_COLORS.length], display:'inline-block' }}/>
-                          {plataformaEmoji(p.plataforma)} {p.name} ({p.rotas})
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-            </div>
-          </div>
-        </div>}
-
-        {/* COMPARATIVO INTELIGENTE */}
-        {isPaid && comparativo && comparativo.rows?.length>=2 && (
-          <div className="card" style={{ marginTop:14 }}>
-            <div className="card-header">
-              <span className="card-title">🧠 Comparativo inteligente</span>
-              <span style={{ fontSize:11, color:'var(--t3)' }}>últimos 30 dias</span>
-            </div>
-            <div className="card-body">
-              {comparativo.insights?.map((ins,i)=>(
-                <div key={i} style={{ background:'var(--od)', border:'1px solid rgba(249,115,22,.2)', borderRadius:10, padding:'12px 16px', marginBottom:14 }}>
-                  <p style={{ fontSize:13, color:'var(--t)', marginBottom:4 }}>{ins.msg}</p>
-                  {ins.acao && <p style={{ fontSize:13, fontWeight:600, color:'var(--or2)' }}>💡 {ins.acao}</p>}
-                </div>
-              ))}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
-                {comparativo.rows.map((p,i)=>(
-                  <div key={p.plataforma} style={{ background:'var(--s2)', borderRadius:10, padding:'12px 14px', border:i===0?'1px solid rgba(249,115,22,.25)':'1px solid var(--b1)' }}>
-                    <p style={{ fontSize:12, marginBottom:6 }}>{plataformaEmoji(p.plataforma)} {plataformaLabel(p.plataforma)}</p>
-                    <p style={{ fontFamily:'var(--fm)', fontSize:17, color:i===0?'var(--or)':'var(--t)', fontWeight:700, marginBottom:2 }}>
-                      {fmtBRL(p.valor_por_pacote)}<span style={{ fontSize:10, fontWeight:400, color:'var(--t3)' }}>/pct</span>
-                    </p>
-                    <p style={{ fontSize:11, color:'var(--t3)' }}>{p.rotas} rotas · {p.pacotes} pcts</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* COMBUSTÍVEL REAL */}
-        {isPaid && statsAbastec && statsAbastec.total_abast>0 && (
-          <div className="card" style={{ marginTop:14 }}>
-            <div className="card-header">
-              <span className="card-title">⛽ Combustível real vs estimado</span>
-              <a href="/abastecimentos" style={{ fontSize:12, color:'var(--or2)', textDecoration:'none' }}>ver todos →</a>
-            </div>
-            <div className="card-body">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:10, marginBottom:statsAbastec.diferenca!==0?12:0 }}>
-                {[
-                  { label:'Gasto real',        val:fmtBRL(statsAbastec.total_gasto),       color:'var(--or)' },
-                  { label:'Estimado nas rotas', val:fmtBRL(statsAbastec.custo_estimado),    color:'var(--ye)' },
-                  { label:'Preço médio/litro',  val:fmtBRL(statsAbastec.preco_medio_litro), color:'var(--t)' },
-                  { label:'Litros abastecidos', val:Number(statsAbastec.total_litros).toFixed(1)+'L', color:'var(--t)' },
-                ].map(item=>(
-                  <div key={item.label} style={{ background:'var(--s2)', borderRadius:8, padding:'10px 12px' }}>
-                    <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:4 }}>{item.label}</p>
-                    <p style={{ fontFamily:'var(--fm)', fontSize:15, color:item.color, fontWeight:700 }}>{item.val}</p>
-                  </div>
-                ))}
-              </div>
-              {Math.abs(statsAbastec.diferenca)>1 && (
-                <div style={{ background:statsAbastec.diferenca>0?'var(--rd)':'var(--gd)', border:`1px solid ${statsAbastec.diferenca>0?'rgba(239,68,68,.2)':'rgba(16,185,129,.2)'}`, borderRadius:8, padding:'10px 14px', fontSize:12, color:statsAbastec.diferenca>0?'var(--re)':'var(--gr2)' }}>
-                  {statsAbastec.diferenca>0
-                    ? `⚠️ Você gastou ${fmtBRL(statsAbastec.diferenca)} a mais que a estimativa.`
-                    : `✅ Você economizou ${fmtBRL(Math.abs(statsAbastec.diferenca))} em relação à estimativa.`
-                  }
-                </div>
-              )}
             </div>
           </div>
         )}

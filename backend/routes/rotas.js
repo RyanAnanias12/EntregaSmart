@@ -109,42 +109,52 @@ router.get('/recentes', auth, async (req, res) => {
 router.get('/stats', auth, async (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query
-    const conds = ['tenant_id=$1'], params = [req.user.tenant_id]
+    const conds = ['r.tenant_id=$1'], params = [req.user.tenant_id]
     let i = 2
-    if (data_inicio) { conds.push(`data_rota >= $${i++}`); params.push(data_inicio) }
-    if (data_fim)    { conds.push(`data_rota <= $${i++}`); params.push(data_fim) }
-    const w = conds.join(' AND ')
+    if (data_inicio) { conds.push(`r.data_rota >= $${i++}`); params.push(data_inicio) }
+    if (data_fim)    { conds.push(`r.data_rota <= $${i++}`); params.push(data_fim) }
+    const w  = conds.join(' AND ')
+    // Financeiro só de rotas CONCLUÍDAS, totais gerais incluem todas
+    const wc = w + ` AND r.status='concluida'`
 
     const geral = await pool.query(`
-      SELECT COUNT(*) as total_rotas,
-             COALESCE(SUM(valor_total),0)        as total_bruto,
-             COALESCE(SUM(bonificacao),0)         as total_bonificacao,
-             COALESCE(SUM(lucro_liquido),0)       as total_liquido,
-             COALESCE(SUM(kms),0)                 as total_kms,
-             COALESCE(SUM(pacotes_entregues),0)   as total_entregues,
-             COALESCE(SUM(pacotes_devolvidos),0)  as total_devolvidos,
-             COALESCE(SUM(custo_combustivel),0)   as total_combustivel
-      FROM rotas WHERE ${w}`, params)
+      SELECT
+        COUNT(*)                                                          as total_rotas,
+        COUNT(*) FILTER (WHERE r.status='concluida')                     as total_concluidas,
+        -- Financeiro sempre de concluídas e calculado na hora (não confia no banco)
+        COALESCE(SUM(r.valor_total)          FILTER (WHERE r.status='concluida'),0) as total_bruto,
+        COALESCE(SUM(r.bonificacao)          FILTER (WHERE r.status='concluida'),0) as total_bonificacao,
+        COALESCE(SUM(r.custo_combustivel)    FILTER (WHERE r.status='concluida'),0) as total_combustivel,
+        COALESCE(SUM(r.kms)                  FILTER (WHERE r.status='concluida'),0) as total_kms,
+        COALESCE(SUM(r.pacotes_entregues)    FILTER (WHERE r.status='concluida'),0) as total_entregues,
+        COALESCE(SUM(r.pacotes_devolvidos)   FILTER (WHERE r.status='concluida'),0) as total_devolvidos,
+        -- Lucro calculado em tempo real: bruto + bonif - combustível
+        COALESCE(SUM(r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)
+          FILTER (WHERE r.status='concluida'),0)                         as total_liquido
+      FROM rotas r WHERE ${w}`, params)
 
     const porMes = await pool.query(`
-      SELECT TO_CHAR(data_rota,'YYYY-MM') as mes,
+      SELECT TO_CHAR(r.data_rota,'YYYY-MM') as mes,
              COUNT(*) as rotas,
-             COALESCE(SUM(valor_total),0)  as bruto,
-             COALESCE(SUM(lucro_liquido),0) as liquido
-      FROM rotas WHERE ${w}
-      GROUP BY TO_CHAR(data_rota,'YYYY-MM') ORDER BY mes DESC LIMIT 6`, params)
+             COALESCE(SUM(r.valor_total),0)  as bruto,
+             COALESCE(SUM(r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel),0) as liquido
+      FROM rotas r WHERE ${wc}
+      GROUP BY TO_CHAR(r.data_rota,'YYYY-MM') ORDER BY mes DESC LIMIT 6`, params)
 
     const porPiloto = await pool.query(`
-      SELECT piloto as nome, COUNT(*) as rotas,
-             COALESCE(SUM(valor_total),0)  as bruto,
-             COALESCE(SUM(lucro_liquido),0) as liquido
-      FROM rotas WHERE ${w} GROUP BY piloto ORDER BY rotas DESC`, params)
+      SELECT r.piloto as nome, COUNT(*) as rotas,
+             COALESCE(SUM(r.valor_total),0)  as bruto,
+             COALESCE(SUM(r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel),0) as liquido
+      FROM rotas r WHERE ${wc} GROUP BY r.piloto ORDER BY rotas DESC`, params)
 
     const porPlataforma = await pool.query(`
-      SELECT plataforma, COUNT(*) as rotas, COALESCE(SUM(valor_total),0) as bruto
-      FROM rotas WHERE ${w} GROUP BY plataforma ORDER BY rotas DESC`, params)
+      SELECT r.plataforma, COUNT(*) as rotas, COALESCE(SUM(r.valor_total),0) as bruto
+      FROM rotas r WHERE ${wc} GROUP BY r.plataforma ORDER BY rotas DESC`, params)
 
-    const rotasList = await pool.query(`SELECT piloto, copiloto, lucro_liquido FROM rotas WHERE ${w}`, params)
+    const rotasList = await pool.query(`
+      SELECT r.piloto, r.copiloto,
+             (r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel) as lucro_liquido
+      FROM rotas r WHERE ${wc}`, params)
     const acc = {}
     rotasList.rows.forEach(r => {
       calcRateio(r.lucro_liquido, r.piloto, r.copiloto).forEach(p => {

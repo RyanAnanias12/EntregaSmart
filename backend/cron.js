@@ -241,15 +241,115 @@ async function rodarNotificacaoRotasAtrasadas() {
   } catch (e) { console.error('[CRON] Erro rotas atrasadas:', e.message) }
 }
 
+// ─── EXPIRAR TRIALS ─────────────────────────────────────────────────────────
+async function expirarTrials() {
+  try {
+    const { rows } = await pool.query(`
+      UPDATE tenants SET plano='free', trial=false
+      WHERE trial=true AND plano_expira_em < NOW()
+      RETURNING id, nome
+    `)
+    for (const t of rows) {
+      console.log('[CRON] Trial expirado: ' + t.nome)
+      // Email avisando que o trial expirou
+      const { rows: users } = await pool.query(
+        `SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND papel='admin'`, [t.id]
+      )
+      for (const u of users) {
+        const { resend, FROM, baseTemplate } = require('./email')
+        const html = baseTemplate(`
+          <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:8px">Seu trial Pro expirou</h2>
+          <p style="color:#7c7c96;font-size:14px;margin-bottom:20px">Olá, ${u.nome}! Seus 7 dias grátis do Pro acabaram.</p>
+          <p style="color:#a0a0b8;font-size:13px;margin-bottom:24px">Você ainda tem acesso ao plano Free. Para continuar usando todas as funcionalidades — dashboard completo, mapa de calor, comparativo semanal e muito mais — assine o Solo ou Pro.</p>
+          <a href="${process.env.FRONTEND_URL}/precos" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">
+            Ver planos a partir de R$ 9,90/mês →
+          </a>
+        `)
+        await resend.emails.send({ from: FROM, to: u.email, subject: 'Seu trial Smart Entregas Pro expirou', html }).catch(()=>{})
+      }
+    }
+  } catch (e) { console.error('[CRON] Erro expirar trials:', e.message) }
+}
+
+// ─── EMAIL D+1 SEM ROTA ──────────────────────────────────────────────────────
+async function emailD1SemRota() {
+  try {
+    const ontem = new Date()
+    ontem.setDate(ontem.getDate() - 1)
+    const ontemStr = ontem.toISOString().slice(0,10)
+
+    // Tenants criados ontem que ainda não têm nenhuma rota
+    const { rows: tenants } = await pool.query(`
+      SELECT t.id, t.nome, u.nome as admin_nome, u.email
+      FROM tenants t
+      JOIN usuarios u ON u.tenant_id=t.id AND u.papel='admin'
+      WHERE t.criado_em::date = $1
+        AND NOT EXISTS (SELECT 1 FROM rotas r WHERE r.tenant_id=t.id)
+    `, [ontemStr])
+
+    const { resend, FROM, baseTemplate } = require('./email')
+    for (const t of tenants) {
+      const html = baseTemplate(`
+        <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:8px">Seu primeiro dia foi ontem 👋</h2>
+        <p style="color:#7c7c96;font-size:14px;margin-bottom:20px">Olá, ${t.admin_nome}! Você criou sua conta no Smart Entregas mas ainda não registrou nenhuma rota.</p>
+        <p style="color:#a0a0b8;font-size:13px;margin-bottom:8px">Registrar a primeira rota leva menos de 1 minuto. Você vai ver na hora quanto lucrou de verdade depois do combustível.</p>
+        <p style="color:#a0a0b8;font-size:13px;margin-bottom:24px">E você ainda tem acesso ao plano <strong style="color:#f97316">Pro por 7 dias grátis</strong> — aproveite!</p>
+        <a href="${process.env.FRONTEND_URL}/rotas?nova=1" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">
+          Registrar primeira rota →
+        </a>
+      `)
+      await resend.emails.send({ from: FROM, to: t.email, subject: `${t.admin_nome}, registre sua primeira rota 🚚`, html }).catch(()=>{})
+      console.log('[CRON] Email D+1 enviado: ' + t.email)
+    }
+  } catch (e) { console.error('[CRON] Erro email D+1:', e.message) }
+}
+
+// ─── STREAK COM TOLERÂNCIA ───────────────────────────────────────────────────
+// Streak não zera se motorista ficou 1 dia sem rodar (tolerância de 1 dia)
+// Já implementado no routes/streak.js — apenas garantir que roda diariamente
+async function atualizarStreaks() {
+  try {
+    const { rows: tenants } = await pool.query(`SELECT id FROM tenants WHERE ativo=true`)
+    for (const t of tenants) {
+      const { rows: dias } = await pool.query(`
+        SELECT DISTINCT data_rota::text as data
+        FROM rotas WHERE tenant_id=$1 AND status='concluida'
+        ORDER BY data_rota DESC LIMIT 365
+      `, [t.id])
+
+      if (!dias.length) { await pool.query(`UPDATE tenants SET streak_dias=0 WHERE id=$1`, [t.id]); continue }
+
+      const agoraBR = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+      const hojeBR  = agoraBR.toISOString().slice(0,10)
+      const ontemBR = new Date(new Date(agoraBR).setDate(agoraBR.getDate()-1)).toISOString().slice(0,10)
+
+      const primeiro = dias[0].data
+      let offset = primeiro===hojeBR ? 0 : primeiro===ontemBR ? 1 : null
+      let streak = 0
+
+      if (offset !== null) {
+        const base = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+        for (let i = 0; i < dias.length; i++) {
+          const esp = new Date(base); esp.setDate(base.getDate() - (i + offset))
+          if (dias[i].data === esp.toISOString().slice(0,10)) streak++
+          else break
+        }
+      }
+
+      await pool.query(`UPDATE tenants SET streak_dias=$1, streak_ultima_data=CURRENT_DATE WHERE id=$2`, [streak, t.id])
+    }
+  } catch (e) { console.error('[CRON] Erro streaks:', e.message) }
+}
+
 function initCron() {
   if (!process.env.RESEND_API_KEY) {
     console.log('[CRON] RESEND_API_KEY nao configurado - emails desativados')
     return
   }
-  cron.schedule('0 8 * * 1', rodarResumoSemanal, { timezone: 'America/Sao_Paulo' })
-  console.log('[CRON] Resumo semanal agendado (seg 08h BRT)')
+  cron.schedule('0 8 * * 1', rodarResumoSemanal,             { timezone: 'America/Sao_Paulo' })
   cron.schedule('0 20 * * *', rodarNotificacaoRotasAtrasadas, { timezone: 'America/Sao_Paulo' })
-  console.log('[CRON] Alerta rotas atrasadas agendado (20h BRT)')
+  cron.schedule('0 10 * * *', emailD1SemRota,                { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 3  * * *', expirarTrials,                  { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 23 * * *', atualizarStreaks,               { timezone: 'America/Sao_Paulo' })
+  console.log('[CRON] Jobs agendados: resumo semanal, atrasadas, D+1, trial expira, streaks')
 }
-
-module.exports = { initCron }
