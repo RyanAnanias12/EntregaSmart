@@ -42,7 +42,10 @@ export default function Login() {
             <input className="input" type="email" placeholder="seu@email.com" value={form.email} onChange={e => s('email', e.target.value)} required autoComplete="email"/>
           </div>
           <div className="field">
-            <label className="field-label">Senha</label>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+              <label className="field-label">Senha</label>
+              <a href="/esqueci-senha" style={{ fontSize:11, color:'var(--or2)', textDecoration:'none' }}>Esqueci minha senha</a>
+            </div>
             <input className="input" type="password" placeholder="••••••••" value={form.senha} onChange={e => s('senha', e.target.value)} required autoComplete="current-password"/>
           </div>
 

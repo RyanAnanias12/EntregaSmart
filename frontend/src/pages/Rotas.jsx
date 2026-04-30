@@ -167,8 +167,8 @@ export default function Rotas() {
                         <td><span style={{ fontSize: 13 }}>{plataformaEmoji(r.plataforma)} {plataformaLabel(r.plataforma)}</span></td>
                         <td>
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                            <span className="badge badge-orange">▶ {r.piloto}</span>
-                            <span className="badge badge-gray">{r.copiloto}</span>
+                            <span className="badge badge-orange" style={{ fontSize:11, padding:'2px 7px' }}>▶ {r.piloto}</span>
+                            <span className="badge badge-gray"   style={{ fontSize:11, padding:'2px 7px' }}>{r.copiloto}</span>
                           </div>
                         </td>
                         <td>{r.ponto_coleta || '—'}</td>

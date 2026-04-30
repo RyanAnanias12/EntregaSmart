@@ -341,15 +341,88 @@ async function atualizarStreaks() {
   } catch (e) { console.error('[CRON] Erro streaks:', e.message) }
 }
 
+// ─── NOTIFICAÇÃO META DIÁRIA ─────────────────────────────────────────────────
+async function notificacaoMetaDiaria() {
+  try {
+    const hoje = new Date()
+    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10)
+    const fim  = hoje.toISOString().slice(0,10)
+
+    // Busca tenants com meta definida e plano pago
+    const { rows: tenants } = await pool.query(`
+      SELECT t.id, t.nome, t.meta_mensal,
+             u.nome as admin_nome, u.email
+      FROM tenants t
+      JOIN usuarios u ON u.tenant_id = t.id AND u.papel = 'admin'
+      WHERE t.meta_mensal > 0
+        AND t.plano IN ('pro','solo')
+        AND t.ativo = true
+    `)
+
+    for (const t of tenants) {
+      // Calcula lucro do mês atual
+      const { rows: [stats] } = await pool.query(`
+        SELECT COALESCE(SUM(valor_total + COALESCE(bonificacao,0) - custo_combustivel), 0) as lucro
+        FROM rotas
+        WHERE tenant_id = $1
+          AND status = 'concluida'
+          AND data_rota BETWEEN $2 AND $3
+      `, [t.id, ini, fim])
+
+      const lucroMes  = parseFloat(stats.lucro || 0)
+      const meta      = parseFloat(t.meta_mensal)
+      const pct       = meta > 0 ? Math.round((lucroMes / meta) * 100) : 0
+      const faltam    = meta - lucroMes
+
+      // Só notifica se ainda não bateu a meta
+      if (pct >= 100) continue
+
+      // Calcula meta diária restante
+      const diasMes    = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate()
+      const diasRest   = diasMes - hoje.getDate()
+      const porDia     = diasRest > 0 ? faltam / diasRest : faltam
+      const chave      = `meta_diaria_${t.id}_${hoje.toISOString().slice(0,10)}`
+
+      // Evita notificar duas vezes no mesmo dia
+      const { rows: jaEnviou } = await pool.query(
+        `SELECT 1 FROM meta_alertas_enviados WHERE chave=$1`, [chave]
+      )
+      if (jaEnviou.length) continue
+
+      // Envia push notification
+      const { rows: subs } = await pool.query(
+        `SELECT subscription_json FROM push_subscriptions WHERE tenant_id=$1`, [t.id]
+      )
+      if (subs.length) {
+        const webpush = require('../push')
+        const payload = JSON.stringify({
+          title: '🎯 Meta do dia — Smart Entregas',
+          body:  `${t.admin_nome}, faltam R$${faltam.toFixed(0)} para a meta. Precisa de ~R$${porDia.toFixed(0)}/dia nos próximos ${diasRest} dias.`,
+          url:   '/dashboard'
+        })
+        for (const s of subs) {
+          try { await webpush.sendNotification(JSON.parse(s.subscription_json), payload) }
+          catch(e) { if (e.statusCode === 410) await pool.query(`DELETE FROM push_subscriptions WHERE subscription_json=$1`, [s.subscription_json]) }
+        }
+      }
+
+      // Registra envio
+      await pool.query(`INSERT INTO meta_alertas_enviados (chave) VALUES ($1) ON CONFLICT DO NOTHING`, [chave])
+      console.log(`[CRON] Meta diária: ${t.nome} — ${pct}% (faltam R$${faltam.toFixed(0)})`)
+    }
+  } catch(e) { console.error('[CRON] Erro meta diária:', e.message) }
+}
+
 function initCron() {
   if (!process.env.RESEND_API_KEY) {
     console.log('[CRON] RESEND_API_KEY nao configurado - emails desativados')
     return
   }
-  cron.schedule('0 8 * * 1', rodarResumoSemanal,             { timezone: 'America/Sao_Paulo' })
-  cron.schedule('0 20 * * *', rodarNotificacaoRotasAtrasadas, { timezone: 'America/Sao_Paulo' })
-  cron.schedule('0 10 * * *', emailD1SemRota,                { timezone: 'America/Sao_Paulo' })
-  cron.schedule('0 3  * * *', expirarTrials,                  { timezone: 'America/Sao_Paulo' })
-  cron.schedule('0 23 * * *', atualizarStreaks,               { timezone: 'America/Sao_Paulo' })
-  console.log('[CRON] Jobs agendados: resumo semanal, atrasadas, D+1, trial expira, streaks')
+  cron.schedule('0 8  * * 1', rodarResumoSemanal,             { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 20 * * *', rodarNotificacaoRotasAtrasadas,  { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 10 * * *', emailD1SemRota,                  { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 3  * * *', expirarTrials,                   { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 23 * * *', atualizarStreaks,                 { timezone: 'America/Sao_Paulo' })
+  cron.schedule('0 19 * * *', notificacaoMetaDiaria,            { timezone: 'America/Sao_Paulo' })
+  console.log('[CRON] Jobs: resumo semanal, atrasadas, D+1, trial expira, streaks, meta diária')
 }

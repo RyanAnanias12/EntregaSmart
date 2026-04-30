@@ -78,6 +78,12 @@ export default function Navbar() {
                       <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--fb)' }}
                         onMouseOver={e => e.currentTarget.style.background = 'var(--s3)'}
                         onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                        onClick={() => { go('/perfil'); setUserMenu(false) }}>
+                        👤 Meu perfil
+                      </button>
+                      <button style={{ width: '100%', textAlign: 'left', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--t2)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--fb)' }}
+                        onMouseOver={e => e.currentTarget.style.background = 'var(--s3)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
                         onClick={() => { go('/combustivel'); setUserMenu(false) }}>
                         ⛽ Combustível
                       </button>

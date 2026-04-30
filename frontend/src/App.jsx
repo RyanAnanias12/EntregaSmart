@@ -16,6 +16,9 @@ import Precos        from './pages/Precos'
 import Onboarding    from './pages/Onboarding'
 import Bonificacoes  from './pages/Bonificacoes'
 import Combustivel   from './pages/Combustivel'
+import Perfil        from './pages/Perfil'
+import EsqueciSenha  from './pages/EsqueciSenha'
+import ResetSenha    from './pages/ResetSenha'
 import { fetchOnboarding } from './lib/api'
 
 function PrivateRoute({ children }) {
@@ -81,6 +84,9 @@ function AppContent() {
         <Route path="/historico"     element={<PrivateRoute><Historico/></PrivateRoute>}/>
         <Route path="/bonificacoes"  element={<PrivateRoute><Bonificacoes/></PrivateRoute>}/>
         <Route path="/combustivel"   element={<PrivateRoute><Combustivel/></PrivateRoute>}/>
+        <Route path="/perfil"        element={<PrivateRoute><Perfil/></PrivateRoute>}/>
+        <Route path="/esqueci-senha" element={<EsqueciSenha/>}/>
+        <Route path="/reset-senha"   element={<ResetSenha/>}/>
         <Route path="*"              element={<Navigate to="/" replace/>}/>
       </Routes>
     </div>

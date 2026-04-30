@@ -27,10 +27,10 @@ router.get('/', auth, async (req, res) => {
 
     // Recalcular streak real — aceita hoje ou ontem como ponto de partida
     const { rows: dias } = await pool.query(`
-      SELECT DISTINCT data_rota::text as data
+      SELECT DISTINCT (data_rota AT TIME ZONE 'America/Sao_Paulo')::date::text as data
       FROM rotas
       WHERE tenant_id=$1 AND status='concluida'
-      ORDER BY data_rota DESC
+      ORDER BY 1 DESC
       LIMIT 365
     `, [tid])
 

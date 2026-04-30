@@ -169,6 +169,8 @@ module.exports = { pool, initDB }
 // Executar após o initDB existente
 ;(async () => {
   const extra = [
+    `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token TEXT`,
+    `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_expira TIMESTAMP`,
     `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial BOOLEAN DEFAULT false`,
     `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS mp_payment_id TEXT`,
     `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plano_expira_em TIMESTAMP`,
