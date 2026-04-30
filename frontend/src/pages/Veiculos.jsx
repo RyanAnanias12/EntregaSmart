@@ -90,16 +90,33 @@ export default function Veiculos() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
-            {veiculos.map(v => (
-              <div key={v.id} className="card" style={{ padding: '18px 20px' }}>
+            {veiculos.map(v => {
+              const kmFaltam    = v.km_faltam !== undefined ? parseFloat(v.km_faltam) : null
+              const kmProxRev   = parseFloat(v.km_ultima_revisao||0) + parseFloat(v.km_intervalo_revisao||10000)
+              const kmTotal     = parseFloat(v.km_intervalo_revisao||10000)
+              const kmPercorrido= parseFloat(v.km_atual||0) - parseFloat(v.km_ultima_revisao||0)
+              const pctRevisao  = kmTotal > 0 ? Math.min(100, Math.round((kmPercorrido/kmTotal)*100)) : 0
+              const alertaRev   = kmFaltam !== null && kmFaltam <= 2000
+              const corRev      = kmFaltam <= 0 ? 'var(--re)' : kmFaltam <= 500 ? 'var(--re)' : kmFaltam <= 1500 ? 'var(--ye)' : 'var(--or)'
+              const bgRev       = kmFaltam <= 500 ? 'var(--rd)' : 'var(--yd)'
+
+              return (
+              <div key={v.id} className="card" style={{ padding: '18px 20px', borderColor: alertaRev && kmFaltam <= 500 ? 'rgba(239,68,68,.3)' : undefined }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 40, height: 40, background: 'var(--od)', border: '1px solid rgba(249,115,22,.2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-                      {tipoEmoji(v.tipo)}
+                    <div style={{ width: 40, height: 40, background: alertaRev && kmFaltam <= 500 ? 'var(--rd)' : 'var(--od)', border: `1px solid ${alertaRev && kmFaltam <= 500 ? 'rgba(239,68,68,.2)' : 'rgba(249,115,22,.2)'}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                      {alertaRev && kmFaltam <= 0 ? '🚨' : alertaRev ? '🔧' : tipoEmoji(v.tipo)}
                     </div>
                     <div>
                       <p style={{ fontFamily: 'var(--ff)', fontSize: 14, fontWeight: 700 }}>{v.nome}</p>
-                      {v.placa && <p style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>{v.placa}</p>}
+                      <div style={{ display:'flex', gap:5, marginTop:2, alignItems:'center' }}>
+                        {v.placa && <p style={{ fontSize: 11, color: 'var(--t3)' }}>{v.placa}</p>}
+                        {alertaRev && (
+                          <span style={{ background: bgRev, color: corRev, border:`1px solid ${kmFaltam<=500?'rgba(239,68,68,.3)':'rgba(245,158,11,.3)'}`, borderRadius:99, padding:'1px 7px', fontSize:10, fontWeight:700 }}>
+                            {kmFaltam <= 0 ? '⚠ Revisão atrasada' : `🔧 ${Number(kmFaltam).toFixed(0)} km`}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 5 }}>
@@ -107,9 +124,19 @@ export default function Veiculos() {
                     <button className="btn-icon" style={{ color: 'var(--re)', borderColor: 'rgba(239,68,68,.2)' }} onClick={() => handleDelete(v.id)}>🗑️</button>
                   </div>
                 </div>
-                {v.km_faltam !== undefined && parseFloat(v.km_faltam) <= 1500 && (
-                  <div style={{ background: parseFloat(v.km_faltam) <= 500 ? 'var(--rd)' : 'var(--yd)', border: `1px solid ${parseFloat(v.km_faltam) <= 500 ? 'rgba(239,68,68,.3)' : 'rgba(245,158,11,.3)'}`, borderRadius:8, padding:'8px 12px', marginBottom:8, fontSize:12, color: parseFloat(v.km_faltam) <= 500 ? 'var(--re)' : 'var(--ye)' }}>
-                    🔧 {parseFloat(v.km_faltam) <= 0 ? 'Revisão atrasada!' : `Faltam ${Number(v.km_faltam).toFixed(0)} km para revisão`}
+
+                {/* Barra de progresso de KM até revisão */}
+                {v.km_atual > 0 && kmTotal > 0 && (
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                      <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.06em' }}>Progresso até revisão</p>
+                      <p style={{ fontSize:10, color: corRev, fontWeight:600 }}>
+                        {kmFaltam <= 0 ? 'Atrasada!' : `faltam ${Number(kmFaltam).toFixed(0)} km`}
+                      </p>
+                    </div>
+                    <div style={{ background:'var(--s3)', borderRadius:99, height:6, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${pctRevisao}%`, background: pctRevisao >= 90 ? 'var(--re)' : pctRevisao >= 70 ? 'var(--ye)' : 'var(--or)', borderRadius:99, transition:'width .4s ease' }}/>
+                    </div>
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -132,7 +159,7 @@ export default function Veiculos() {
                   </button>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

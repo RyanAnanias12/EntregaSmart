@@ -154,7 +154,7 @@ export default function Rotas() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>#</th><th>Data</th><th>Status</th><th>Plataforma</th><th>Equipe</th><th>Ponto</th><th>Veículo</th><th>KMs</th><th>Entrega</th><th>Bruto</th><th>Líquido</th><th></th></tr>
+                  <tr><th>#</th><th>Data</th><th>Status</th><th>Plataforma</th><th>Equipe</th><th>Ponto</th><th>Veículo</th><th>KMs</th><th>Entrega</th><th>Bruto</th><th>Líquido</th><th>R$/h</th><th></th></tr>
                 </thead>
                 <tbody>
                   {rotas.map(r => {
@@ -177,6 +177,14 @@ export default function Rotas() {
                         <td>{t !== null ? <span className={`badge ${t >= 80 ? 'badge-green' : 'badge-yellow'}`}>{t}%</span> : '—'}</td>
                         <td>{fmtBRL(r.valor_total)}</td>
                         <td className="hl" style={{ color: 'var(--gr2)' }}>{r.status === 'concluida' ? fmtBRL(r.lucro_liquido) : '—'}</td>
+                        <td style={{ fontSize:12 }}>
+                          {(() => {
+                            const lph = calcLucroPorHora(r.lucro_liquido, r.hora_inicio, r.hora_fim)
+                            if (!lph || r.status !== 'concluida') return <span style={{ color:'var(--t3)' }}>—</span>
+                            const cor = lph >= 20 ? 'var(--gr2)' : lph >= 12 ? 'var(--ye)' : 'var(--re)'
+                            return <span style={{ fontFamily:'var(--fm)', color:cor, fontWeight:600 }}>{fmtBRL(lph)}</span>
+                          })()}
+                        </td>
                         <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 5 }}>
                             <button className="btn-icon" onClick={e => openEdit(r, e)}>✏️</button>
@@ -203,7 +211,12 @@ export default function Rotas() {
                   <span className="badge badge-orange">▶ {r.piloto}</span>
                   <span style={{ fontSize: 12 }}>{plataformaEmoji(r.plataforma)}</span>
                 </div>
-                {r.status === 'concluida' && <span style={{ fontFamily: 'var(--fm)', fontSize: 15, color: 'var(--gr2)' }}>{fmtBRL(r.lucro_liquido)}</span>}
+                {r.status === 'concluida' && <span style={{ fontFamily: 'var(--fm)', fontSize: 15, color: 'var(--gr2)' }}>
+                {fmtBRL(r.lucro_liquido)}
+                {calcLucroPorHora(r.lucro_liquido, r.hora_inicio, r.hora_fim) && (
+                  <span style={{ fontSize:11, color:'var(--t3)', fontFamily:'var(--fb)', fontWeight:400 }}> · {fmtBRL(calcLucroPorHora(r.lucro_liquido, r.hora_inicio, r.hora_fim))}/h</span>
+                )}
+              </span>}
               </div>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--t2)', marginBottom: 10 }}>
                 <span>📍 {r.ponto_coleta || '—'}</span>
@@ -236,6 +249,14 @@ export default function Rotas() {
                     <p style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>Lucro líquido</p>
                     <p style={{ fontFamily: 'var(--ff)', fontSize: 38, fontWeight: 800, color: 'var(--gr2)', lineHeight: 1 }}>{fmtBRL(detalhe.lucro_liquido)}</p>
                     <p style={{ fontSize: 12, color: 'var(--t3)', marginTop: 6 }}>Bruto {fmtBRL(detalhe.valor_total)} — Combustível {fmtBRL(detalhe.custo_combustivel)}</p>
+                    {calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim) && (
+                      <p style={{ fontSize:12, marginTop:6 }}>
+                        <span style={{ color:'var(--t3)' }}>Lucro por hora: </span>
+                        <span style={{ fontFamily:'var(--fm)', fontWeight:700, color: calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim) >= 20 ? 'var(--gr2)' : calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim) >= 12 ? 'var(--ye)' : 'var(--re)' }}>
+                          {fmtBRL(calcLucroPorHora(detalhe.lucro_liquido, detalhe.hora_inicio, detalhe.hora_fim))}/h
+                        </span>
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>

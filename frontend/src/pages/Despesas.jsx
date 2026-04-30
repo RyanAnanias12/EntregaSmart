@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fetchDespesas, criarDespesa, editarDespesa, deletarDespesa, fmtBRL, CATEGORIAS_DESPESA } from '../lib/api'
+import { fetchDespesas, criarDespesa, editarDespesa, deletarDespesa, fmtBRL, CATEGORIAS_DESPESA, fetchStats, buildQS } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { Toast } from '../components/Toast'
 
@@ -15,6 +15,7 @@ export default function Despesas() {
   const [form,     setForm]     = useState(EMPTY)
   const [saving,   setSaving]   = useState(false)
   const [toast,    setToast]    = useState(null)
+  const [statsRotas, setStatsRotas] = useState(null)
   const notify = (msg, type = 'success') => setToast({ msg, type })
   const s = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -25,7 +26,18 @@ export default function Despesas() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { if (isPaid) load(); else setLoading(false) }, [])
+  useEffect(() => {
+    if (!isPaid) { setLoading(false); return }
+    const hoje = new Date()
+    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10)
+    const fim  = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10)
+    Promise.all([
+      fetchDespesas(),
+      fetchStats(buildQS({ data_inicio: ini, data_fim: fim }))
+    ]).then(([d, s]) => { setDespesas(d); setStatsRotas(s?.geral) })
+      .catch(() => notify('Erro ao carregar', 'error'))
+      .finally(() => setLoading(false))
+  }, [])
 
   function openAdd()   { setEditando(null); setForm(EMPTY); setShowForm(true) }
   function openEdit(d) { setEditando(d); setForm({ categoria: d.categoria, descricao: d.descricao, valor: d.valor }); setShowForm(true) }
@@ -71,25 +83,55 @@ export default function Despesas() {
           <button className="btn btn-primary" onClick={openAdd}>+ Adicionar despesa</button>
         </div>
 
-        {/* TOTAL */}
+        {/* IMPACTO */}
         {despesas.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
-            <div className="metric">
-              <p className="metric-label">Total mensal</p>
-              <p className="metric-value" style={{ color: 'var(--re)', fontSize: 22 }}>{fmtBRL(total)}</p>
-              <p className="metric-sub">sai todo mês</p>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 10 }}>
+              <div className="metric">
+                <p className="metric-label">Total mensal</p>
+                <p className="metric-value" style={{ color: 'var(--re)', fontSize: 22 }}>{fmtBRL(total)}</p>
+                <p className="metric-sub">sai todo mês</p>
+              </div>
+              <div className="metric">
+                <p className="metric-label">Por dia</p>
+                <p className="metric-value" style={{ fontSize: 22 }}>{fmtBRL(total / 30)}</p>
+                <p className="metric-sub">custo diário</p>
+              </div>
+              <div className="metric">
+                <p className="metric-label">Por rota este mês</p>
+                <p className="metric-value" style={{ fontSize: 22, color:'var(--ye)' }}>
+                  {statsRotas && parseInt(statsRotas.total_rotas) > 0
+                    ? fmtBRL(total / parseInt(statsRotas.total_rotas))
+                    : fmtBRL(total / 22)
+                  }
+                </p>
+                <p className="metric-sub">
+                  {statsRotas && parseInt(statsRotas.total_rotas) > 0
+                    ? `baseado em ${statsRotas.total_rotas} rotas reais`
+                    : 'baseado em 22 dias úteis'
+                  }
+                </p>
+              </div>
             </div>
-            <div className="metric">
-              <p className="metric-label">Por dia</p>
-              <p className="metric-value" style={{ fontSize: 22 }}>{fmtBRL(total / 30)}</p>
-              <p className="metric-sub">custo diário</p>
-            </div>
-            <div className="metric">
-              <p className="metric-label">Por rota (estimativa)</p>
-              <p className="metric-value" style={{ fontSize: 22 }}>{fmtBRL(total / 22)}</p>
-              <p className="metric-sub">baseado em 22 dias úteis</p>
-            </div>
-          </div>
+
+            {/* Insight de impacto */}
+            {statsRotas && parseInt(statsRotas.total_rotas) > 0 && (
+              <div style={{ marginBottom:20, padding:'12px 16px', background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)' }}>
+                <p style={{ fontSize:13, color:'var(--t2)', lineHeight:1.6 }}>
+                  💡 Cada rota que você faz absorve{' '}
+                  <strong style={{ color:'var(--ye)' }}>{fmtBRL(total / parseInt(statsRotas.total_rotas))}</strong>
+                  {' '}de despesa fixa. Seu lucro líquido real é{' '}
+                  <strong style={{ color:'var(--gr2)' }}>{fmtBRL(parseFloat(statsRotas.total_liquido||0) - total)}</strong>
+                  {' '}depois de descontar os {fmtBRL(total)} de custos fixos deste mês.
+                </p>
+                {parseFloat(statsRotas.total_liquido||0) - total < 0 && (
+                  <p style={{ fontSize:12, color:'var(--re)', marginTop:6, fontWeight:600 }}>
+                    ⚠️ Suas despesas fixas estão consumindo mais do que o lucro das rotas este mês.
+                  </p>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* LISTA */}

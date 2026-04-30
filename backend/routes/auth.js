@@ -120,3 +120,48 @@ router.put('/meta', auth, async (req, res) => {
 })
 
 module.exports = router
+// POST /api/auth/forgot — solicita reset de senha
+router.post('/forgot', async (req, res) => {
+  const { email } = req.body
+  if (!email) return res.status(400).json({ error: 'Email obrigatório' })
+  try {
+    const { rows } = await pool.query(`SELECT u.id, u.nome FROM usuarios u WHERE u.email=$1 AND u.ativo=true`, [email.toLowerCase()])
+    // Sempre retorna ok para não revelar se email existe
+    if (!rows[0]) return res.json({ ok: true })
+
+    const token  = require('crypto').randomBytes(32).toString('hex')
+    const expira = new Date(Date.now() + 60*60*1000) // 1 hora
+
+    await pool.query(`UPDATE usuarios SET reset_token=$1, reset_expira=$2 WHERE id=$3`, [token, expira, rows[0].id])
+
+    const link = `${process.env.FRONTEND_URL}/reset-senha?token=${token}`
+    const { resend, FROM, baseTemplate } = require('./email-helper')
+    const html = baseTemplate(`
+      <h2 style="font-size:20px;font-weight:800;color:#f4f4f6;margin-bottom:8px">Redefinir sua senha</h2>
+      <p style="color:#7c7c96;font-size:14px;margin-bottom:20px">Olá, ${rows[0].nome}! Recebemos uma solicitação para redefinir sua senha.</p>
+      <a href="${link}" style="display:block;text-align:center;background:#f97316;color:white;padding:13px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:16px">
+        Redefinir senha →
+      </a>
+      <p style="color:#4a4a62;font-size:12px;text-align:center">Este link expira em 1 hora. Se você não solicitou, ignore este email.</p>
+    `)
+    const { resend: resendClient, baseTemplate: bt } = require('../email')
+    await resendClient.emails.send({ from: process.env.EMAIL_FROM, to: email, subject: 'Redefinir senha — Smart Entregas', html }).catch(()=>{})
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// POST /api/auth/reset — redefine a senha com o token
+router.post('/reset', async (req, res) => {
+  const { token, senha } = req.body
+  if (!token || !senha) return res.status(400).json({ error: 'Token e senha obrigatórios' })
+  if (senha.length < 6) return res.status(400).json({ error: 'Senha mínima de 6 caracteres' })
+  try {
+    const { rows } = await pool.query(
+      `SELECT id FROM usuarios WHERE reset_token=$1 AND reset_expira > NOW() AND ativo=true`, [token]
+    )
+    if (!rows[0]) return res.status(400).json({ error: 'Token inválido ou expirado' })
+    const hash = await require('bcryptjs').hash(senha, 10)
+    await pool.query(`UPDATE usuarios SET senha_hash=$1, reset_token=null, reset_expira=null WHERE id=$2`, [hash, rows[0].id])
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
