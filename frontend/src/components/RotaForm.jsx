@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS } from '../lib/api'
+import { calcCombustivel, fmtBRL, fetchVeiculos, fetchUsuarios, PLATAFORMAS, fetchPrecoPadrao } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 const STATUS = [
@@ -43,17 +43,20 @@ export default function RotaForm({ initial, onSave, onClose, loading }) {
   const [veiculos, setVeiculos] = useState([])
 
   useEffect(() => {
+    // Busca último preço registrado para usar como padrão
+    fetchPrecoPadrao().then(d => {
+      if (!initial) setF(p => ({ ...p, preco_combustivel: d.preco?.toFixed(2) || '4.69' }))
+    }).catch(() => {})
+
     fetchUsuarios().then(l => {
       const ativos = l.filter(u => u.ativo)
       setMembros(ativos)
-      // Preenche piloto automaticamente com o primeiro membro (ou usuário logado)
       if (!initial) {
         const piloto = ativos[0]?.nome || user?.nome || ''
         const copiloto = ativos[1]?.nome || piloto
         setF(p => ({ ...EMPTY, piloto, copiloto, preco_combustivel: p.preco_combustivel }))
       }
     }).catch(() => {
-      // Fallback: usa o nome do usuário logado
       if (!initial) {
         const piloto = user?.nome || ''
         setF(p => ({ ...EMPTY, piloto, copiloto: piloto, preco_combustivel: p.preco_combustivel }))

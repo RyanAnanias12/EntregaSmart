@@ -187,3 +187,5 @@ export const TIPOS_BONIF = [
   { v:'extra',   l:'⭐ Extra',   cor:'#3b82f6' },
   { v:'outros',  l:'💬 Outros',  cor:'#7c7c96' },
 ]
+
+export const fetchPrecoPadrao = () => req('/api/rotas/preco-padrao')

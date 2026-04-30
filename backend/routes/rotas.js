@@ -27,6 +27,39 @@ async function getTenantNome(tenantId) {
   return rows[0]?.nome || ''
 }
 
+// Busca último preço de combustível registrado pelo tenant
+async function getUltimoPreco(tenantId) {
+  const { rows } = await pool.query(
+    `SELECT preco FROM historico_combustivel WHERE tenant_id=$1 ORDER BY data DESC, criado_em DESC LIMIT 1`,
+    [tenantId]
+  )
+  if (rows[0]) return parseFloat(rows[0].preco)
+  // Fallback: preço padrão salvo no tenant
+  const { rows: t } = await pool.query(`SELECT preco_combustivel_padrao FROM tenants WHERE id=$1`, [tenantId])
+  return parseFloat(t[0]?.preco_combustivel_padrao || PRECO_ALCOOL_PADRAO)
+}
+
+// Recalcula lucro de uma rota em tempo real (sem depender do valor salvo)
+async function recalcularLucro(rota, tenantId) {
+  let consumo = 6.5
+  if (rota.veiculo_id) {
+    const { rows: [v] } = await pool.query(`SELECT consumo_kml FROM veiculos WHERE id=$1`, [rota.veiculo_id])
+    if (v) consumo = parseFloat(v.consumo_kml)
+  }
+  const preco = parseFloat(rota.preco_combustivel) || await getUltimoPreco(tenantId)
+  const comb  = calcComb(rota.kms || 0, consumo, preco)
+  const liq   = parseFloat(((rota.valor_total || 0) + parseFloat(rota.bonificacao || 0) - comb).toFixed(2))
+  return { comb, liq, preco }
+}
+
+// GET /api/rotas/preco-padrao — retorna último preço registrado para preencher o form
+router.get('/preco-padrao', auth, async (req, res) => {
+  try {
+    const preco = await getUltimoPreco(req.user.tenant_id)
+    res.json({ preco })
+  } catch(e) { res.status(500).json({ error: e.message }) }
+})
+
 router.get('/', auth, async (req, res) => {
   try {
     const { data_inicio, data_fim, piloto, ponto_coleta, status, plataforma } = req.query
@@ -209,7 +242,7 @@ router.post('/', auth, async (req, res) => {
       }
     }
 
-    let consumo = 6.5, preco = PRECO_ALCOOL_PADRAO
+    let consumo = 6.5, preco = await getUltimoPreco(req.user.tenant_id)
     if (d.veiculo_id) {
       const { rows: [v] } = await pool.query(`SELECT consumo_kml FROM veiculos WHERE id=$1 AND tenant_id=$2`, [d.veiculo_id, req.user.tenant_id])
       if (v) consumo = parseFloat(v.consumo_kml)
@@ -261,7 +294,7 @@ router.put('/:id', auth, async (req, res) => {
     const { rows: [atual] } = await pool.query(`SELECT status FROM rotas WHERE id=$1 AND tenant_id=$2`, [req.params.id, req.user.tenant_id])
     if (!atual) return res.status(404).json({ error: 'Não encontrada' })
 
-    let consumo = 6.5, preco = PRECO_ALCOOL_PADRAO
+    let consumo = 6.5, preco = await getUltimoPreco(req.user.tenant_id)
     if (d.veiculo_id) {
       const { rows: [v] } = await pool.query(`SELECT consumo_kml FROM veiculos WHERE id=$1`, [d.veiculo_id])
       if (v) consumo = parseFloat(v.consumo_kml)
