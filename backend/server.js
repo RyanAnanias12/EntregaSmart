@@ -7,7 +7,6 @@ const app  = express()
 const PORT = process.env.PORT || 3001
 
 app.use(cors())
-// Webhooks precisam do body raw
 app.use('/api/billing/webhook/stripe', express.raw({ type: '*/*' }))
 app.use('/api/billing/webhook/mp',     express.raw({ type: '*/*' }))
 app.use(express.json())
@@ -24,12 +23,16 @@ app.use('/api/bonificacoes',  require('./routes/bonificacoes'))
 app.use('/api/streak',        require('./routes/streak'))
 app.use('/api/onboarding',    require('./routes/onboarding'))
 app.use('/api/combustivel',   require('./routes/combustivel'))
+
 app.get('/api/health', (_, res) => res.json({ ok: true, ts: new Date() }))
 
 async function start() {
   try {
     await initDB()
-    if (process.env.NODE_ENV !== 'test') require('./cron')
+    if (process.env.NODE_ENV !== 'test') {
+      const { initCron } = require('./cron')
+      initCron()
+    }
     app.listen(PORT, () => console.log(`[API] :${PORT}`))
   } catch(e) { console.error('[FATAL]', e); process.exit(1) }
 }
