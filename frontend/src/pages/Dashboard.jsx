@@ -219,32 +219,34 @@ export default function Dashboard() {
       <div className="container">
 
         {/* ══ SEÇÃO 1 — HEADER ══════════════════════════════════════ */}
-        <div style={{ marginBottom:18, display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
-          <div>
-            <h1 style={{ fontFamily:'var(--ff)', fontSize:22, fontWeight:800, letterSpacing:'-.02em', marginBottom:6 }}>
-              {saudacao(user?.nome)}
-            </h1>
-            <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-              <span className={`badge ${isPro&&!tenant?.trial?'badge-pro':isSolo?'badge-orange':'badge-gray'}`} style={{ fontSize:10 }}>
-                {isPro&&tenant?.trial?'⏳ Trial':isPro?'⭐ Pro':isSolo?'🚴 Solo':'Free'}
-              </span>
-              {tenant?.trial && tenant?.plano_expira_em && (() => {
-                const dias = Math.max(0, Math.ceil((new Date(tenant.plano_expira_em)-new Date())/86400000))
-                return <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'2px 9px', fontSize:11, color:'var(--or2)', fontWeight:600 }}>{dias}d de trial restantes</span>
-              })()}
-              {streak >= 1 && (
-                <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 7px', fontSize:10, color:'var(--or2)', fontWeight:600 }}>
-                  {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d
+        <div style={{ marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:12 }}>
+            <div>
+              <h1 style={{ fontFamily:'var(--ff)', fontSize:22, fontWeight:800, letterSpacing:'-.02em', marginBottom:6 }}>
+                {saudacao(user?.nome)}
+              </h1>
+              <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                <span className={`badge ${isPro&&!tenant?.trial?'badge-pro':isSolo?'badge-orange':'badge-gray'}`} style={{ fontSize:10 }}>
+                  {isPro&&tenant?.trial?'⏳ Trial':isPro?'⭐ Pro':isSolo?'🚴 Solo':'Free'}
                 </span>
-              )}
+                {tenant?.trial && tenant?.plano_expira_em && (() => {
+                  const dias = Math.max(0, Math.ceil((new Date(tenant.plano_expira_em)-new Date())/86400000))
+                  return <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 7px', fontSize:10, color:'var(--or2)', fontWeight:600 }}>{dias}d de trial</span>
+                })()}
+                {streak >= 1 && (
+                  <span style={{ background:'rgba(249,115,22,.1)', border:'1px solid rgba(249,115,22,.2)', borderRadius:99, padding:'1px 7px', fontSize:10, color:'var(--or2)', fontWeight:600 }}>
+                    {streak >= 30?'🔥🔥🔥':streak >= 14?'🔥🔥':'🔥'} {streak}d
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Tabs de período */}
-          <div style={{ display:'flex', gap:3, background:'var(--s2)', borderRadius:8, padding:3 }}>
+          {/* Tabs de período — full width no mobile */}
+          <div style={{ display:'flex', gap:3, background:'var(--s2)', borderRadius:8, padding:3, width:'100%' }}>
             {PERIODOS.map(p => (
               <button key={p.key} onClick={()=>mudarPeriodo(p.key)}
-                style={{ background:periodoKey===p.key?'var(--s1)':'transparent', border:periodoKey===p.key?'1px solid var(--b1)':'1px solid transparent', color:periodoKey===p.key?'var(--t)':'var(--t3)', borderRadius:6, padding:'5px 13px', fontSize:12, fontWeight:periodoKey===p.key?600:400, cursor:'pointer', transition:'all .15s' }}>
+                style={{ flex:1, background:periodoKey===p.key?'var(--s1)':'transparent', border:periodoKey===p.key?'1px solid var(--b1)':'1px solid transparent', color:periodoKey===p.key?'var(--t)':'var(--t3)', borderRadius:6, padding:'6px 4px', fontSize:11, fontWeight:periodoKey===p.key?600:400, cursor:'pointer', transition:'all .15s', textAlign:'center' }}>
                 {p.label}
               </button>
             ))}
@@ -295,16 +297,16 @@ export default function Dashboard() {
         {parseInt(g.total_rotas) > 0 && <>
 
         {/* ══ SEÇÃO 2 — NÚMEROS PRINCIPAIS ════════════════════════════ */}
-        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10, marginBottom:12 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, marginBottom:12 }}>
 
           {/* Card principal — Lucro */}
-          <div style={{ background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'20px 22px', position:'relative', overflow:'hidden' }}>
+          <div style={{ background:'var(--s1)', border:'1px solid var(--b1)', borderRadius:'var(--r)', padding:'18px 20px', position:'relative', overflow:'hidden', gridColumn:'1 / -1' }}>
             <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'var(--gr2)', borderRadius:'var(--r) var(--r) 0 0' }}/>
-            <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:10 }}>Lucro líquido</p>
-            <p style={{ fontFamily:'var(--fm)', fontSize:32, fontWeight:800, color:'var(--gr2)', letterSpacing:'-.02em', lineHeight:1, marginBottom:6 }}>{fmtBRL(lucroRotas)}</p>
+            <p style={{ fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:8 }}>Lucro líquido</p>
+            <p style={{ fontFamily:'var(--fm)', fontSize:28, fontWeight:800, color:'var(--gr2)', letterSpacing:'-.02em', lineHeight:1, marginBottom:6 }}>{fmtBRL(lucroRotas)}</p>
             <p style={{ fontSize:12, color:'var(--t3)', marginBottom: (totalBonif>0||totalDespesas>0)?8:0 }}>{g.total_rotas} rota{g.total_rotas!=1?'s':''} · {Number(g.total_kms||0).toFixed(0)} km · {g.total_entregues} pacotes</p>
             {(totalBonif > 0 || totalDespesas > 0) && (
-              <div style={{ display:'flex', alignItems:'center', gap:8, paddingTop:8, borderTop:'1px solid var(--b1)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, paddingTop:8, borderTop:'1px solid var(--b1)', flexWrap:'wrap' }}>
                 <p style={{ fontSize:11, color:'var(--t3)' }}>Lucro real</p>
                 <p style={{ fontFamily:'var(--fm)', fontSize:13, fontWeight:700, color:lucroReal>=lucroRotas?'var(--gr2)':'var(--re)' }}>{fmtBRL(lucroReal)}</p>
                 {totalBonif>0 && <span style={{ fontSize:11, color:'var(--ye)' }}>+{fmtBRL(totalBonif)} bônus</span>}
@@ -328,9 +330,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ══ SEÇÃO 3 — COMPARATIVO + META (lado a lado) ═══════════════ */}
+        {/* ══ SEÇÃO 3 — COMPARATIVO + META ═══════════════════════════ */}
         {isPaid && (
-          <div style={{ display:'grid', gridTemplateColumns: semanal && parseFloat(semanal.anterior?.lucro||0)>0 ? '1fr 1fr' : '1fr', gap:10, marginBottom:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:10, marginBottom:12 }}>
 
             {/* Comparativo semanal */}
             {semanal && parseFloat(semanal.anterior?.lucro||0) > 0 && (
@@ -420,7 +422,7 @@ export default function Dashboard() {
 
         {/* ══ SEÇÃO 5 — GRÁFICO + RATEIO ═══════════════════════════════ */}
         {isPaid && (meses.length > 1 || rateio.length > 0) && (
-          <div style={{ display:'grid', gridTemplateColumns: meses.length>1 && rateio.length>0 ? '3fr 2fr' : '1fr', gap:10, marginBottom:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:10, marginBottom:12 }}>
 
             {/* Gráfico faturamento */}
             {meses.length > 1 && (
