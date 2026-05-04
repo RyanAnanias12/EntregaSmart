@@ -17,6 +17,11 @@ function calcRateio(lucro, piloto, copiloto) {
   ]
 }
 
+// Lucro sempre calculado em tempo real — nunca confia no valor salvo
+function lucroReal(r) {
+  return parseFloat(((parseFloat(r.valor_total)||0) + (parseFloat(r.bonificacao)||0) - (parseFloat(r.custo_combustivel)||0)).toFixed(2))
+}
+
 async function getEmails(tenantId) {
   const { rows } = await pool.query(`SELECT email FROM usuarios WHERE tenant_id=$1 AND ativo=true`, [tenantId])
   return rows.map(r => r.email)
@@ -27,32 +32,16 @@ async function getTenantNome(tenantId) {
   return rows[0]?.nome || ''
 }
 
-// Busca último preço de combustível registrado pelo tenant
 async function getUltimoPreco(tenantId) {
   const { rows } = await pool.query(
     `SELECT preco FROM historico_combustivel WHERE tenant_id=$1 ORDER BY data DESC, criado_em DESC LIMIT 1`,
     [tenantId]
   )
   if (rows[0]) return parseFloat(rows[0].preco)
-  // Fallback: preço padrão salvo no tenant
   const { rows: t } = await pool.query(`SELECT preco_combustivel_padrao FROM tenants WHERE id=$1`, [tenantId])
   return parseFloat(t[0]?.preco_combustivel_padrao || PRECO_ALCOOL_PADRAO)
 }
 
-// Recalcula lucro de uma rota em tempo real (sem depender do valor salvo)
-async function recalcularLucro(rota, tenantId) {
-  let consumo = 6.5
-  if (rota.veiculo_id) {
-    const { rows: [v] } = await pool.query(`SELECT consumo_kml FROM veiculos WHERE id=$1`, [rota.veiculo_id])
-    if (v) consumo = parseFloat(v.consumo_kml)
-  }
-  const preco = parseFloat(rota.preco_combustivel) || await getUltimoPreco(tenantId)
-  const comb  = calcComb(rota.kms || 0, consumo, preco)
-  const liq   = parseFloat(((rota.valor_total || 0) + parseFloat(rota.bonificacao || 0) - comb).toFixed(2))
-  return { comb, liq, preco }
-}
-
-// GET /api/rotas/preco-padrao — retorna último preço registrado para preencher o form
 router.get('/preco-padrao', auth, async (req, res) => {
   try {
     const preco = await getUltimoPreco(req.user.tenant_id)
@@ -72,7 +61,9 @@ router.get('/', auth, async (req, res) => {
     if (status)       { conds.push(`r.status = $${i++}`);           params.push(status) }
     if (plataforma)   { conds.push(`r.plataforma = $${i++}`);       params.push(plataforma) }
     const { rows } = await pool.query(
-      `SELECT r.*, v.nome as veiculo_nome, v.consumo_kml, v.tipo as veiculo_tipo
+      `SELECT r.*,
+              ROUND((r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)::numeric, 2) as lucro_liquido,
+              v.nome as veiculo_nome, v.consumo_kml, v.tipo as veiculo_tipo
        FROM rotas r LEFT JOIN veiculos v ON v.id = r.veiculo_id
        WHERE ${conds.join(' AND ')} ORDER BY r.data_rota DESC, r.criado_em DESC`,
       params
@@ -93,7 +84,7 @@ router.get('/historico', auth, async (req, res) => {
       SELECT data_rota::text as data,
              COUNT(*) as rotas,
              COALESCE(SUM(valor_total),0) as bruto,
-             COALESCE(SUM(lucro_liquido),0) as liquido,
+             COALESCE(SUM(valor_total + COALESCE(bonificacao,0) - custo_combustivel),0) as liquido,
              COALESCE(SUM(pacotes_entregues),0) as pacotes,
              COALESCE(SUM(kms),0) as kms
       FROM rotas
@@ -110,7 +101,7 @@ router.get('/comparativo', auth, async (req, res) => {
       SELECT plataforma,
              COUNT(*) as rotas,
              COALESCE(AVG(valor_total),0) as media_bruto,
-             COALESCE(AVG(lucro_liquido),0) as media_liquido,
+             COALESCE(AVG(valor_total + COALESCE(bonificacao,0) - custo_combustivel),0) as media_liquido,
              COALESCE(SUM(pacotes_entregues),0) as total_pacotes,
              COALESCE(SUM(valor_total),0) as total_bruto,
              CASE WHEN SUM(pacotes_entregues) > 0
@@ -128,11 +119,11 @@ router.get('/comparativo', auth, async (req, res) => {
 router.get('/recentes', auth, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      (SELECT r.*, v.nome as veiculo_nome FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.tenant_id=$1 AND r.status='planejada'    ORDER BY r.data_rota ASC  LIMIT 2)
+      (SELECT r.*, ROUND((r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)::numeric,2) as lucro_liquido, v.nome as veiculo_nome FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.tenant_id=$1 AND r.status='planejada'    ORDER BY r.data_rota ASC  LIMIT 2)
       UNION ALL
-      (SELECT r.*, v.nome as veiculo_nome FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.tenant_id=$1 AND r.status='concluida'    ORDER BY r.data_rota DESC LIMIT 2)
+      (SELECT r.*, ROUND((r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)::numeric,2) as lucro_liquido, v.nome as veiculo_nome FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.tenant_id=$1 AND r.status='concluida'    ORDER BY r.data_rota DESC LIMIT 2)
       UNION ALL
-      (SELECT r.*, v.nome as veiculo_nome FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.tenant_id=$1 AND r.status='em_andamento' ORDER BY r.data_rota DESC LIMIT 1)
+      (SELECT r.*, ROUND((r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)::numeric,2) as lucro_liquido, v.nome as veiculo_nome FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.tenant_id=$1 AND r.status='em_andamento' ORDER BY r.data_rota DESC LIMIT 1)
       ORDER BY data_rota DESC LIMIT 3
     `, [req.user.tenant_id])
     res.json(rows)
@@ -147,36 +138,33 @@ router.get('/stats', auth, async (req, res) => {
     if (data_inicio) { conds.push(`r.data_rota >= $${i++}`); params.push(data_inicio) }
     if (data_fim)    { conds.push(`r.data_rota <= $${i++}`); params.push(data_fim) }
     const w  = conds.join(' AND ')
-    // Financeiro só de rotas CONCLUÍDAS, totais gerais incluem todas
     const wc = w + ` AND r.status='concluida'`
 
     const geral = await pool.query(`
       SELECT
-        COUNT(*)                                                          as total_rotas,
-        COUNT(*) FILTER (WHERE r.status='concluida')                     as total_concluidas,
-        -- Financeiro sempre de concluídas e calculado na hora (não confia no banco)
-        COALESCE(SUM(r.valor_total)          FILTER (WHERE r.status='concluida'),0) as total_bruto,
-        COALESCE(SUM(r.bonificacao)          FILTER (WHERE r.status='concluida'),0) as total_bonificacao,
-        COALESCE(SUM(r.custo_combustivel)    FILTER (WHERE r.status='concluida'),0) as total_combustivel,
-        COALESCE(SUM(r.kms)                  FILTER (WHERE r.status='concluida'),0) as total_kms,
-        COALESCE(SUM(r.pacotes_entregues)    FILTER (WHERE r.status='concluida'),0) as total_entregues,
-        COALESCE(SUM(r.pacotes_devolvidos)   FILTER (WHERE r.status='concluida'),0) as total_devolvidos,
-        -- Lucro calculado em tempo real: bruto + bonif - combustível
+        COUNT(*) as total_rotas,
+        COUNT(*) FILTER (WHERE r.status='concluida') as total_concluidas,
+        COALESCE(SUM(r.valor_total)       FILTER (WHERE r.status='concluida'),0) as total_bruto,
+        COALESCE(SUM(r.bonificacao)       FILTER (WHERE r.status='concluida'),0) as total_bonificacao,
+        COALESCE(SUM(r.custo_combustivel) FILTER (WHERE r.status='concluida'),0) as total_combustivel,
+        COALESCE(SUM(r.kms)               FILTER (WHERE r.status='concluida'),0) as total_kms,
+        COALESCE(SUM(r.pacotes_entregues) FILTER (WHERE r.status='concluida'),0) as total_entregues,
+        COALESCE(SUM(r.pacotes_devolvidos)FILTER (WHERE r.status='concluida'),0) as total_devolvidos,
         COALESCE(SUM(r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)
-          FILTER (WHERE r.status='concluida'),0)                         as total_liquido
+          FILTER (WHERE r.status='concluida'),0) as total_liquido
       FROM rotas r WHERE ${w}`, params)
 
     const porMes = await pool.query(`
       SELECT TO_CHAR(r.data_rota,'YYYY-MM') as mes,
              COUNT(*) as rotas,
-             COALESCE(SUM(r.valor_total),0)  as bruto,
+             COALESCE(SUM(r.valor_total),0) as bruto,
              COALESCE(SUM(r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel),0) as liquido
       FROM rotas r WHERE ${wc}
       GROUP BY TO_CHAR(r.data_rota,'YYYY-MM') ORDER BY mes DESC LIMIT 6`, params)
 
     const porPiloto = await pool.query(`
       SELECT r.piloto as nome, COUNT(*) as rotas,
-             COALESCE(SUM(r.valor_total),0)  as bruto,
+             COALESCE(SUM(r.valor_total),0) as bruto,
              COALESCE(SUM(r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel),0) as liquido
       FROM rotas r WHERE ${wc} GROUP BY r.piloto ORDER BY rotas DESC`, params)
 
@@ -208,8 +196,11 @@ router.get('/stats', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT r.*, v.nome as veiculo_nome, v.consumo_kml, v.tipo as veiculo_tipo
-       FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id WHERE r.id=$1 AND r.tenant_id=$2`,
+      `SELECT r.*,
+              ROUND((r.valor_total + COALESCE(r.bonificacao,0) - r.custo_combustivel)::numeric, 2) as lucro_liquido,
+              v.nome as veiculo_nome, v.consumo_kml, v.tipo as veiculo_tipo
+       FROM rotas r LEFT JOIN veiculos v ON v.id=r.veiculo_id
+       WHERE r.id=$1 AND r.tenant_id=$2`,
       [req.params.id, req.user.tenant_id]
     )
     if (!rows[0]) return res.status(404).json({ error: 'Não encontrada' })
@@ -222,12 +213,10 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const d = req.body
-    // No plano free copiloto não é obrigatório
     if (req.user.plano === 'pro' && d.piloto === d.copiloto) {
       return res.status(400).json({ error: 'Piloto e copiloto não podem ser iguais' })
     }
 
-    // Limite plano free: 10 rotas por mês
     if (req.user.plano !== 'pro') {
       const mes_inicio = new Date(); mes_inicio.setDate(1); mes_inicio.setHours(0,0,0,0)
       const { rows: [cnt] } = await pool.query(
@@ -235,10 +224,7 @@ router.post('/', auth, async (req, res) => {
         [req.user.tenant_id, mes_inicio.toISOString()]
       )
       if (parseInt(cnt.total) >= 10) {
-        return res.status(403).json({
-          error: 'Limite de 10 rotas por mês atingido no plano gratuito.',
-          upgrade: true
-        })
+        return res.status(403).json({ error: 'Limite de 10 rotas por mês atingido no plano gratuito.', upgrade: true })
       }
     }
 
@@ -261,16 +247,14 @@ router.post('/', auth, async (req, res) => {
         d.data_rota,d.status||'planejada',d.kms||0,d.pacotes_saida||0,d.pacotes_entregues||0,
         d.pacotes_devolvidos||0,d.paradas||0,d.valor_total||0,bonus,comb,liq,preco,d.observacoes||null])
 
-    r.rateio = calcRateio(liq, r.piloto, r.copiloto)
+    // Retorna com lucro calculado em tempo real
+    r.lucro_liquido = lucroReal(r)
+    r.rateio = calcRateio(r.lucro_liquido, r.piloto, r.copiloto)
 
-    // Notificação de nova rota — pro envia para piloto e copiloto individualmente
     if (process.env.RESEND_API_KEY) {
       const tenantNome = await getTenantNome(req.user.tenant_id)
       if (req.user.plano === 'pro') {
-        const { rows: usuarios } = await pool.query(
-          `SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND ativo=true`,
-          [req.user.tenant_id]
-        )
+        const { rows: usuarios } = await pool.query(`SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND ativo=true`, [req.user.tenant_id])
         const emailsSet = new Set(usuarios.map(u => u.email))
         usuarios.forEach(u => { if (u.nome === r.piloto || u.nome === r.copiloto) emailsSet.add(u.email) })
         enviarNotificacaoRotaCriada(r, [...emailsSet], tenantNome, 'pro').catch(() => {})
@@ -313,17 +297,15 @@ router.put('/:id', auth, async (req, res) => {
         d.kms||0,d.pacotes_saida||0,d.pacotes_entregues||0,d.pacotes_devolvidos||0,d.paradas||0,
         d.valor_total||0,bonus,comb,liq,preco,d.observacoes||null,req.params.id,req.user.tenant_id])
 
-    r.rateio = calcRateio(liq, r.piloto, r.copiloto)
+    // Retorna com lucro calculado em tempo real
+    r.lucro_liquido = lucroReal(r)
+    r.rateio = calcRateio(r.lucro_liquido, r.piloto, r.copiloto)
 
-    // Notificação quando conclui — pro envia para piloto e copiloto individualmente
     const foiConcluida = atual.status !== 'concluida' && d.status === 'concluida'
     if (foiConcluida && process.env.RESEND_API_KEY) {
       const tenantNome = await getTenantNome(req.user.tenant_id)
       if (req.user.plano === 'pro') {
-        const { rows: usuarios } = await pool.query(
-          `SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND ativo=true`,
-          [req.user.tenant_id]
-        )
+        const { rows: usuarios } = await pool.query(`SELECT email, nome FROM usuarios WHERE tenant_id=$1 AND ativo=true`, [req.user.tenant_id])
         const emailsSet = new Set(usuarios.map(u => u.email))
         usuarios.forEach(u => { if (u.nome === r.piloto || u.nome === r.copiloto) emailsSet.add(u.email) })
         enviarNotificacaoRotaConcluida(r, r.rateio, [...emailsSet], tenantNome, [], 'pro').catch(() => {})
@@ -344,9 +326,6 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-
-
-// GET /api/rotas/comparativo-inteligente
 router.get('/comparativo-inteligente', auth, async (req, res) => {
   try {
     const dias = parseInt(req.query.dias) || 30
@@ -356,14 +335,12 @@ router.get('/comparativo-inteligente', auth, async (req, res) => {
     const { rows } = await pool.query(`
       SELECT
         plataforma,
-        COUNT(*)                                        as rotas,
-        COALESCE(SUM(pacotes_entregues),0)              as pacotes,
-        COALESCE(SUM(valor_total),0)                    as bruto,
-        COALESCE(SUM(lucro_liquido),0)                  as liquido,
-        COALESCE(AVG(NULLIF(pacotes_entregues,0)),0)    as media_pacotes,
-        COALESCE(
-          SUM(valor_total) / NULLIF(SUM(pacotes_entregues),0), 0
-        )                                               as valor_por_pacote
+        COUNT(*) as rotas,
+        COALESCE(SUM(pacotes_entregues),0) as pacotes,
+        COALESCE(SUM(valor_total),0) as bruto,
+        COALESCE(SUM(valor_total + COALESCE(bonificacao,0) - custo_combustivel),0) as liquido,
+        COALESCE(AVG(NULLIF(pacotes_entregues,0)),0) as media_pacotes,
+        COALESCE(SUM(valor_total) / NULLIF(SUM(pacotes_entregues),0), 0) as valor_por_pacote
       FROM rotas
       WHERE tenant_id=$1 AND data_rota BETWEEN $2 AND $3
         AND status='concluida' AND pacotes_entregues > 0
@@ -373,22 +350,17 @@ router.get('/comparativo-inteligente', auth, async (req, res) => {
 
     if (rows.length < 2) return res.json({ rows, insights: [] })
 
-    // Gerar insights comparativos
     const insights = []
     const melhor = rows[0]
     const pior   = rows[rows.length - 1]
 
     if (melhor && pior && melhor.plataforma !== pior.plataforma) {
-      const difPacote = parseFloat(melhor.valor_por_pacote) - parseFloat(pior.valor_por_pacote)
-      const totalPacotesPior = parseInt(pior.pacotes)
-      const ganhoExtra = parseFloat((difPacote * totalPacotesPior).toFixed(2))
-
+      const difPacote  = parseFloat(melhor.valor_por_pacote) - parseFloat(pior.valor_por_pacote)
+      const ganhoExtra = parseFloat((difPacote * parseInt(pior.pacotes)).toFixed(2))
       insights.push({
         tipo: 'melhor_plataforma',
         msg: `Você ganha ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(melhor.valor_por_pacote)}/pacote no ${melhor.plataforma.replace('_',' ')} e ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(pior.valor_por_pacote)}/pacote na ${pior.plataforma.replace('_',' ')}.`,
-        acao: ganhoExtra > 0
-          ? `Nos últimos ${dias} dias, priorizar ${melhor.plataforma.replace('_',' ')} te daria R$ ${ganhoExtra.toFixed(2)} a mais.`
-          : null,
+        acao: ganhoExtra > 0 ? `Nos últimos ${dias} dias, priorizar ${melhor.plataforma.replace('_',' ')} te daria R$ ${ganhoExtra.toFixed(2)} a mais.` : null,
         ganho_extra: ganhoExtra,
         melhor: melhor.plataforma,
         pior: pior.plataforma,
